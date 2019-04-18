@@ -64,7 +64,7 @@ function write_persontable()
 end
 
 
-npeople() = size(data["table"], 1)
+npeople() = length(unique(data["table"][:personid]))
 
 ################################################################################
 # Utils
