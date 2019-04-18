@@ -59,7 +59,6 @@ Undertake exact matching on all relevant fields.
 ## TODO
 
 1. Check person.locality against the values available from the ABS.
-2. Move cdes_tables to a separate repo and rename this repo.
 2. Pre-processing:
    - st => street, crt => court, dr => drive, drv => drive, hwy => highway, etc
    - vdi.fulladress: start at the end of the string, identify each word as one of postcode, state, locality or road type (st, drv, ave, etc)
