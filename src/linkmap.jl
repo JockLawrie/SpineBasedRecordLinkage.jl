@@ -8,8 +8,6 @@ using Schemata
 
 using ..persontable
 
-import Base.write
-
 const data = Dict("fullpath" => "", "table" => DataFrame())
 
 function init!(fullpath::String, tblschema::TableSchema)
@@ -48,7 +46,7 @@ function appendrow!(tblname, r)
    end
 end
 
-function write()
+function write_linkmap()
    tbl      = data["table"]
    fullpath = data["fullpath"]
    tbl |> CSV.write(fullpath; delim='\t')

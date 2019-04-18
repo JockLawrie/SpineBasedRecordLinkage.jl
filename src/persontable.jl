@@ -6,8 +6,6 @@ using DataFrames
 using Logging
 using Schemata
 
-import Base.write
-
 const data = Dict("fullpath" => "",
                   "table" => DataFrame(),
                   "colnames" => Symbol[],
@@ -59,7 +57,7 @@ end
 
 appendrow!(r) = appendrow!(r, newpersonid())
 
-function write()
+function write_persontable()
    tbl      = data["table"]
    fullpath = data["fullpath"]
    tbl |> CSV.write(fullpath; delim='\t')
