@@ -42,16 +42,14 @@ function init!(fullpath::String, tblschema::TableSchema)
 end
 
 
-function appendrow!(r, personid)
-    tbl      = data["table"]
-    id2index = data["recordid2index"]
-    rid      = recordid(r)
+function appendrow!(r, tbl, id2index)
+    rid = recordid(r)
     if haskey(id2index, rid)
         @warn "The Person table already has a record with ID $(rid)"
     else  # Complete the new record and append it to the table
         d            = Dict(colname => haskey(r, colname) ? r[colname] : missing for colname in data["colnames"])
         d[:recordid] = rid
-        d[:personid] = personid
+        d[:personid] = newpersonid()
         d[:recordstartdate] = haskey(r, :recordstartdate) ? r[:recordstartdate] : missing
         push!(tbl, d)
         id2index[rid]    = size(tbl, 1)
@@ -59,7 +57,16 @@ function appendrow!(r, personid)
     end
 end
 
-appendrow!(r) = appendrow!(r, newpersonid())
+appendrow!(r) = appendrow!(r, data["table"], data["recordid2index"])
+
+
+function updatetable!(tbl)
+    pt     = data["table"]
+    id2idx = data["recordid2index"]
+    for r in eachrow(tbl)
+        appendrow!(r, pt, id2idx)
+    end
+end
 
 
 function write_persontable()

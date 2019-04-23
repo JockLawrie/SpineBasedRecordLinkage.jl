@@ -42,9 +42,6 @@
    e. Join these smaller tables on the `rowid` fields constructed in Steps 7b and 7d.
    f. Append the matched records to the persistent linkage map.
 
-Undertake exact matching on all relevant fields.
-
-
 
 8. Fuzzy matching.
    For each table of interest:
@@ -54,13 +51,3 @@ Undertake exact matching on all relevant fields.
     - Construct distance matrix
     - Set distance threshold
     - Apply distance matrix
-
-
-## TODO
-
-1. Check person.locality against the values available from the ABS.
-2. Pre-processing:
-   - st => street, crt => court, dr => drive, drv => drive, hwy => highway, etc
-   - vdi.fulladress: start at the end of the string, identify each word as one of postcode, state, locality or road type (st, drv, ave, etc)
-   - Implement as a function that takes a string and returns (streetaddress,postcode,locality).
-   - Use ABS tables to get state from postcode
