@@ -33,7 +33,7 @@
    - Test whether the person specified by the record is in the Person table.
    - If so, make an entry in the linkage map.
 
-7. Exact matching.
+7. Exact matching on some fields.
    For each table of interest:
    a. Select the columns for exact matching.
    b. Construct an index for the selected columns, defined uniquely and persistently based on the values in the columns. Here we use `rowid = hash(col1=val1, ...)`.

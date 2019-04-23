@@ -10,14 +10,15 @@ using ..persontable
 
 const data = Dict("fullpath" => "", "table" => DataFrame())
 
+
 function init!(fullpath::String, tblschema::TableSchema)
     if isfile(fullpath)
         tbl = DataFrame(CSV.File(fullpath; delim='\t'))
         tbl, issues = enforce_schema(tbl, tblschema, false)
         if size(issues, 1) > 0
-           issues_file = joinpath(dirname(fullpath), "linkmap_issues.tsv")
-           issues |> CSV.write(issues_file; delim='\t')
-           @warn "There are some data issues. See $(issues_file) for details."
+            issues_file = joinpath(dirname(fullpath), "linkmap_issues.tsv")
+            issues |> CSV.write(issues_file; delim='\t')
+            @warn "There are some data issues. See $(issues_file) for details."
         end
         data["fullpath"] = fullpath
         data["table"]    = tbl
@@ -34,22 +35,35 @@ function init!(fullpath::String, tblschema::TableSchema)
     end
 end
 
+
+#=
 function appendrow!(tblname, r)
-   tbl      = persontable.data["table"]
-   colnames = persontable.data["colnames"]
-   d        = Dict(colname => haskey(r, colname) ? r[colname] : missing for colname in colnames)
-   recordid = hash([d[colname] for colname in colnames])
-   id2index = persontable.data["recordid2index"]
-   if haskey(id2index, recordid)
-      x = (tablename=tblname, tablerecordid=r[:recordid], personrecordid=recordid)
-      push!(data["table"], x)
-   end
+    rid      = persontable.recordid(r)
+    id2index = persontable.data["recordid2index"]
+    if haskey(id2index, rid)
+        x = (tablename=tblname, tablerecordid=r[:recordid], personrecordid=rid)
+        push!(data["table"], x)
+    end
 end
+=#
+
 
 function write_linkmap()
-   tbl      = data["table"]
-   fullpath = data["fullpath"]
-   tbl |> CSV.write(fullpath; delim='\t')
+    tbl      = data["table"]
+    fullpath = data["fullpath"]
+    tbl |> CSV.write(fullpath; delim='\t')
 end
+
+
+function link_all_fields!(tblname::String, tbl)
+    id2index = persontable.data["recordid2index"]
+    for r in eachrow(tbl)
+        rid = persontable.recordid(r)
+        !haskey(id2index, rid) && continue
+        x = (tablename=tblname, tablerecordid=r[:recordid], personrecordid=rid)
+        push!(data["table"], x)
+    end
+end
+
 
 end

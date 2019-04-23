@@ -9,7 +9,9 @@ using Schemata
 const data = Dict("fullpath" => "",
                   "table" => DataFrame(),
                   "colnames" => Symbol[],
-                  "recordid2index" => Dict{UInt64, Int}())
+                  "recordid2index" => Dict{UInt64, Int}(),
+                  "npeople" => 0)
+
 
 function init!(fullpath::String, tblschema::TableSchema)
     colnames = tblschema.col_order
@@ -25,6 +27,7 @@ function init!(fullpath::String, tblschema::TableSchema)
         data["table"]    = tbl
         data["colnames"] = colnames[4:end]
         data["recordid2index"] = [tbl[i, :recordid] => i for i = 1:size(tbl, 1)]
+        data["npeople"]  = length(unique(tbl[:personid]))
         @info "The Person table has $(size(tbl, 1)) rows."
     elseif isdir(dirname(fullpath))
         touch(fullpath)  # Create file
@@ -38,37 +41,44 @@ function init!(fullpath::String, tblschema::TableSchema)
     end
 end
 
+
 function appendrow!(r, personid)
-   tbl      = data["table"]
-   colnames = data["colnames"]
-   d        = Dict(colname => haskey(r, colname) ? r[colname] : missing for colname in colnames)
-   recordid = hash([d[colname] for colname in colnames])
-   id2index = data["recordid2index"]
-   if haskey(id2index, recordid)
-      @warn "The Person table already has a record with ID $(recordid)"
-   else  # Complete the new record and append it to the table
-      d[:recordid] = recordid
-      d[:personid] = personid
-      d[:recordstartdate] = haskey(r, :recordstartdate) ? r[:recordstartdate] : missing
-      push!(tbl, d)
-      id2index[recordid] = size(tbl, 1)
-   end
+    tbl      = data["table"]
+    id2index = data["recordid2index"]
+    rid      = recordid(r)
+    if haskey(id2index, rid)
+        @warn "The Person table already has a record with ID $(rid)"
+    else  # Complete the new record and append it to the table
+        d            = Dict(colname => haskey(r, colname) ? r[colname] : missing for colname in data["colnames"])
+        d[:recordid] = rid
+        d[:personid] = personid
+        d[:recordstartdate] = haskey(r, :recordstartdate) ? r[:recordstartdate] : missing
+        push!(tbl, d)
+        id2index[rid]    = size(tbl, 1)
+        data["npeople"] += 1
+    end
 end
 
 appendrow!(r) = appendrow!(r, newpersonid())
 
+
 function write_persontable()
-   tbl      = data["table"]
-   fullpath = data["fullpath"]
-   tbl |> CSV.write(fullpath; delim='\t')
+    tbl      = data["table"]
+    fullpath = data["fullpath"]
+    tbl |> CSV.write(fullpath; delim='\t')
 end
 
 
-npeople() = length(unique(data["table"][:personid]))
+npeople() = data["npeople"]
+
 
 ################################################################################
 # Utils
 
-newpersonid() = (haskey(data["table"], :personid) && size(data["table"], 1) > 0) ? data["table"][end, :personid] + 1 : 1
+newpersonid() = haskey(data["table"], :personid) ? npeople() + 1 : 1
+
+recordid(r, colnames) = hash([r[colname] for colname in colnames])
+
+recordid(r) = recordid(r, data["colnames"])
 
 end
