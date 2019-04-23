@@ -217,10 +217,10 @@ uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.29.0"
 
 [[StringDistances]]
-deps = ["Distances", "IterTools", "Test"]
-git-tree-sha1 = "2d9e7e22e842da878744331de6895c504124021d"
+deps = ["Distances", "IterTools", "Random", "Test"]
+git-tree-sha1 = "125d06646183f1822849e852e45177710e700686"
 uuid = "88034a9c-02f8-509d-84a9-84ec65e18404"
-version = "0.3.1"
+version = "0.3.2"
 
 [[TableTraits]]
 deps = ["IteratorInterfaceExtensions", "Test"]

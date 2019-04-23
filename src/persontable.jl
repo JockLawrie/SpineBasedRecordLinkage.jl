@@ -8,7 +8,7 @@ using Schemata
 
 const data = Dict("fullpath" => "",
                   "table" => DataFrame(),
-                  "colnames" => Symbol[],
+                  "colnames" => Symbol[],  # names(table) excluding [:recordid, :personid, :recordstartdate]
                   "recordid2index" => Dict{UInt64, Int}(),
                   "npeople" => 0)
 
@@ -44,17 +44,14 @@ end
 
 function appendrow!(r, tbl, id2index)
     rid = recordid(r)
-    if haskey(id2index, rid)
-        @warn "The Person table already has a record with ID $(rid)"
-    else  # Complete the new record and append it to the table
-        d            = Dict(colname => haskey(r, colname) ? r[colname] : missing for colname in data["colnames"])
-        d[:recordid] = rid
-        d[:personid] = newpersonid()
-        d[:recordstartdate] = haskey(r, :recordstartdate) ? r[:recordstartdate] : missing
-        push!(tbl, d)
-        id2index[rid]    = size(tbl, 1)
-        data["npeople"] += 1
-    end
+    haskey(id2index, rid) && return  # Person already exists in the Person table
+    d            = Dict(colname => haskey(r, colname) ? r[colname] : missing for colname in data["colnames"])
+    d[:recordid] = rid
+    d[:personid] = newpersonid()
+    d[:recordstartdate] = haskey(r, :recordstartdate) ? r[:recordstartdate] : missing
+    push!(tbl, d)
+    id2index[rid]    = size(tbl, 1)
+    data["npeople"] += 1
 end
 
 appendrow!(r) = appendrow!(r, data["table"], data["recordid2index"])

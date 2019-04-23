@@ -51,3 +51,13 @@
     - Construct distance matrix
     - Set distance threshold
     - Apply distance matrix
+
+# TODO
+
+- Implement fuzzy matching
+- Implement streaming methods for large files
+- Create a `Libpostal.jl` package.
+- When populating persontable:
+    - Combine rows that are probably the same person (needs fuzzy matching).
+    - E.g., all fields match but 1 row has missing postcode.
+    - Distinguish missing values from differing values (more lenient with the former?)
