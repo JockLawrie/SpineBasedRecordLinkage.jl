@@ -39,7 +39,7 @@ function main(filename::String, data::Dict{String, DataFrame})
         @info "Linkage pass: $(n)"
         tablename      = linkagepass.tablename
         exactmatchcols = linkagepass.exactmatch_columns
-        fmc            = linkagepass.fuzzymatch_crtieria
+        fmc            = linkagepass.fuzzymatch_criteria
         linkmap.link!(tablename, data, exactmatchcols, fmc)
     end
 
