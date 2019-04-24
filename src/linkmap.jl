@@ -6,6 +6,7 @@ using DataFrames
 using Logging
 using Schemata
 
+using ..config
 using ..persontable
 
 const data = Dict("fullpath" => "", "table" => DataFrame())
@@ -22,7 +23,7 @@ function init!(fullpath::String, tblschema::TableSchema)
         end
         data["fullpath"] = fullpath
         data["table"]    = tbl
-        @info "The linkage map has $(size(tbl, 0)) rows."
+        @info "The linkage map has $(size(tbl, 1)) rows."
     elseif isdir(dirname(fullpath))
         touch(fullpath)  # Create file
         colnames = tblschema.col_order
@@ -62,12 +63,20 @@ The subsets are determined by exactmatchcols and fuzzymatch_criteria.
 
 A subset of rows is matched if and only if there is exactly 1 candidate match in the Person table.
 """
-function link!(tablename::String, name2data, exactmatchcols::Vector{Symbol}, fuzzymatch_criteria::Vector{Dict})
+function link!(tablename::String, tbl, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch})
     linkmap    = data["table"]
     linkmap    = view(linkmap, linkmap[:tablename] .== tablename, :)
     linked_ids = Set(linkmap[:tablerecordid])  # Records of tablename that are already linked
-    tbl        = name2data[tablename]
     for subdata in groupby(tbl, exactmatchcols)
+        # Check if there are any records in the group that haven't yet been linked
+        nlinked = 0
+        for r in eachrow(subdata)
+            if in(r[:recordid], linked_ids)      # Record has already been linked
+                nlinked += 1
+            end
+        end
+        nlinked == size(subdata, 1) && continue  # All records in the group have already been linked
+
         # Get candidate rows from the Person table using exact matching
         p = persontable.data["table"]
         for colname in exactmatchcols
@@ -85,18 +94,18 @@ function link!(tablename::String, name2data, exactmatchcols::Vector{Symbol}, fuz
 
         # Match each row in subdata to the candidate row
         for r in eachrow(subdata)
-            id = r[:recordid]
-            in(id, linked_ids) && continue  # r has already been linked
+            tid = r[:recordid]
+            in(tid,linked_ids) && continue
             rid = p[1, :recordid]
-            x   = (tablename=tablename, tablerecordid=id, personrecordid=rid)
+            x   = (tablename=tablename, tablerecordid=tid, personrecordid=rid)
             push!(data["table"], x)
         end
     end
 end
 
 
-link!(tablename, name2data)                 = link!(tablename, name2data, persontable.data["colnames"], Dict[])
-link!(tablename, name2data, exactmatchcols) = link!(tablename, name2data, exactmatchcols, Dict[])
+link!(tablename, tbl)                 = link!(tablename, tbl, persontable.data["colnames"], FuzzyMatch[])
+link!(tablename, tbl, exactmatchcols) = link!(tablename, tbl, exactmatchcols, Fuzzymatch[])
 
 
 end

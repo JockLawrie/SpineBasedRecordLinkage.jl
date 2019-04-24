@@ -42,7 +42,6 @@
    e. Join these smaller tables on the `rowid` fields constructed in Steps 7b and 7d.
    f. Append the matched records to the persistent linkage map.
 
-
 8. Fuzzy matching.
    For each table of interest:
    a. Specify columns on which exact matching is required.

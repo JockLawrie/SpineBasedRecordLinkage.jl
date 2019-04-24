@@ -1,33 +1,52 @@
 module config
 
-export LinkageConfig
+export LinkageConfig, LinkagePass, FuzzyMatch
 
 using Schemata
 using YAML
 
-using ..persontable
+
+################################################################################
+
+"""
+tablecolumn and personcolumn denote columns in the data and person tables respectively that being compared in the fuzzy match.
+"""
+struct FuzzyMatch
+    tablecolumn::Symbol
+    personcolumn::Symbol
+    distancemetric::Symbol
+    threshold::Float64
+end
 
 
-#########################################################################################
+################################################################################
 
 struct LinkagePass
     tablename::String
     exactmatchcols::Vector{Symbol}
-    fuzzymatch_criteria::Dict{String, Any}
+    fuzzymatches::Vector{FuzzyMatch}
 end
 
 
 function LinkagePass(d::Dict)
     tablename      = d["tablename"]
-    exactmatchcols = d["exactmatch_columns"]
-    exactmatchcols = exactmatchcols == "all" ? persontable.data["colnames"] : Symbol.(exactmatchcols)
-    x              = d["fuzzymatch_criteria"]
-    fuzzy_criteria = Dict("colnames" => Symbol.(x["columns"]), "distancemetric" => Symbol(x["distancemetric"]), "threshold" => x["threshold"])
-    LinkagePass(tablename, exactmatchcols, fuzzy_criteria)
+    exactmatchcols = Symbol.(d["exactmatch_columns"])
+    fuzzymatches   = FuzzyMatch[]
+    if haskey(d, "fuzzymatches")
+        fm_specs = d["fuzzymatches"]
+        for x in fm_specs
+            tablecol, personcol = Symbol.(x["columns"])
+            distancemetric      = Symbol(x["distancemetric"])
+            threshold           = x["threshold"]
+            fm                  = FuzzyMatch(tablecol, personcol, distancemetric, threshold)
+            push!(fuzzymatches, fm)
+        end
+    end
+    LinkagePass(tablename, exactmatchcols, fuzzymatches)
 end
 
 
-#########################################################################################
+################################################################################
 
 struct LinkageConfig
     datadir::String

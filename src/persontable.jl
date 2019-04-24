@@ -1,5 +1,6 @@
 module persontable
 
+using Base64
 using CSV
 using Dates
 using DataFrames
@@ -9,7 +10,7 @@ using Schemata
 const data = Dict("fullpath" => "",
                   "table" => DataFrame(),
                   "colnames" => Symbol[],  # names(table) excluding [:recordid, :personid, :recordstartdate]
-                  "recordid2index" => Dict{UInt64, Int}(),
+                  "recordid2index" => Dict{String, Int}(),
                   "npeople" => 0)
 
 
@@ -26,7 +27,7 @@ function init!(fullpath::String, tblschema::TableSchema)
         data["fullpath"] = fullpath
         data["table"]    = tbl
         data["colnames"] = colnames[4:end]
-        data["recordid2index"] = [tbl[i, :recordid] => i for i = 1:size(tbl, 1)]
+        data["recordid2index"] = Dict(tbl[i, :recordid] => i for i = 1:size(tbl, 1))
         data["npeople"]  = length(unique(tbl[:personid]))
         @info "The Person table has $(size(tbl, 1)) rows."
     elseif isdir(dirname(fullpath))
@@ -42,19 +43,17 @@ function init!(fullpath::String, tblschema::TableSchema)
 end
 
 
-function appendrow!(r, tbl, id2index)
+function appendrow!(r, persontbl, id2index)
     rid = recordid(r)
     haskey(id2index, rid) && return  # Person already exists in the Person table
-    d            = Dict(colname => haskey(r, colname) ? r[colname] : missing for colname in data["colnames"])
+    d            = Dict{Symbol, Any}(colname => haskey(r, colname) ? r[colname] : missing for colname in data["colnames"])
     d[:recordid] = rid
     d[:personid] = newpersonid()
     d[:recordstartdate] = haskey(r, :recordstartdate) ? r[:recordstartdate] : missing
-    push!(tbl, d)
-    id2index[rid]    = size(tbl, 1)
+    push!(persontbl, d)
+    id2index[rid]    = size(persontbl, 1)
     data["npeople"] += 1
 end
-
-appendrow!(r) = appendrow!(r, data["table"], data["recordid2index"])
 
 
 function updatetable!(tbl)
@@ -81,7 +80,7 @@ npeople() = data["npeople"]
 
 newpersonid() = haskey(data["table"], :personid) ? npeople() + 1 : 1
 
-recordid(r, colnames) = hash([r[colname] for colname in colnames])
+recordid(r, colnames) = base64encode(hash([haskey(r, colname) ? r[colname] : missing for colname in colnames]))
 
 recordid(r) = recordid(r, data["colnames"])
 

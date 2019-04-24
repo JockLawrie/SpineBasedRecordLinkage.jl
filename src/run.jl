@@ -6,9 +6,9 @@ using DataFrames
 using Logging
 using Schemata
 
+using ..config
 using ..persontable
 using ..linkmap
-using ..config
 
 
 function main(filename::String, data::Dict{String, DataFrame})
@@ -16,8 +16,8 @@ function main(filename::String, data::Dict{String, DataFrame})
     cfg = LinkageConfig(filename)
 
     @info "Initialising the Person table"
-    @info "The fields that identify a person are\n:    $(persontable.data["colnames"])"
     persontable.init!(joinpath(cfg.datadir, "input", "person.tsv"), cfg.person_schema)
+    @info "The fields that identify a person are\n:    $(persontable.data["colnames"])"
 
     @info "Initialising the Linkage Map"
     linkmap.init!(joinpath(cfg.datadir, "input", "linkmap.tsv"), cfg.linkmap_schema)
@@ -38,9 +38,10 @@ function main(filename::String, data::Dict{String, DataFrame})
         n += 1
         @info "Linkage pass: $(n)"
         tablename      = linkagepass.tablename
-        exactmatchcols = linkagepass.exactmatch_columns
-        fmc            = linkagepass.fuzzymatch_criteria
-        linkmap.link!(tablename, data, exactmatchcols, fmc)
+        exactmatchcols = linkagepass.exactmatchcols
+        fuzzymatches   = linkagepass.fuzzymatches
+        tbl            = data[tablename]
+        linkmap.link!(tablename, tbl, exactmatchcols, fuzzymatches)
     end
 
     @info "Writing results to disk"
