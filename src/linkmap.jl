@@ -26,8 +26,8 @@ function init!(fullpath::String, tblschema::TableSchema)
         @info "The linkage map has $(size(tbl, 1)) rows."
     elseif isdir(dirname(fullpath))
         touch(fullpath)  # Create file
-        colnames = tblschema.col_order
-        coltypes = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
+        colnames         = tblschema.col_order
+        coltypes         = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
         data["fullpath"] = fullpath
         data["table"]    = DataFrame(coltypes, colnames, 0)
         @info "The linkage map has 0 rows."
@@ -35,18 +35,6 @@ function init!(fullpath::String, tblschema::TableSchema)
         @error "File name is not valid."
     end
 end
-
-
-#=
-function appendrow!(tblname, r)
-    rid      = persontable.recordid(r)
-    id2index = persontable.data["recordid2index"]
-    if haskey(id2index, rid)
-        x = (tablename=tblname, tablerecordid=r[:recordid], personrecordid=rid)
-        push!(data["table"], x)
-    end
-end
-=#
 
 
 function write_linkmap()
@@ -63,10 +51,10 @@ The subsets are determined by exactmatchcols and fuzzymatch_criteria.
 
 A subset of rows is matched if and only if there is exactly 1 candidate match in the Person table.
 """
-function link!(tablename::String, tbl, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch})
-    linkmap    = data["table"]
-    linkmap    = view(linkmap, linkmap[:tablename] .== tablename, :)
-    linked_ids = Set(linkmap[:tablerecordid])  # Records of tablename that are already linked
+function link!(tablename::String, tablefile::String, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch})
+    linkmap     = data["table"]
+    linkmap     = view(linkmap, linkmap[:tablename] .== tablename, :)
+    linked_tids = Set(linkmap[:tablerecordid])  # Records of tablename that are already linked
     for subdata in groupby(tbl, exactmatchcols)
         # Check if there are any records in the group that haven't yet been linked
         nlinked = 0
@@ -102,10 +90,6 @@ function link!(tablename::String, tbl, exactmatchcols::Vector{Symbol}, fuzzymatc
         end
     end
 end
-
-
-link!(tablename, tbl)                 = link!(tablename, tbl, persontable.data["colnames"], FuzzyMatch[])
-link!(tablename, tbl, exactmatchcols) = link!(tablename, tbl, exactmatchcols, Fuzzymatch[])
 
 
 end
