@@ -17,7 +17,7 @@ function main(d::Dict)
 
     @info "Initialising the Person table"
     persontable.init!(joinpath(cfg.inputdir, "person.tsv"), cfg.person_schema)
-    @info "The fields that identify a person are\n:  $(persontable.data["colnames"])"
+    @info "The fields that identify a person are:\n  $(persontable.data["colnames"])"
 
     # Update the Person table with new records if they exist
     if !isempty(cfg.updatepersontable)

@@ -47,7 +47,7 @@ function updatetable!(filename::String)
     pt        = data["table"]
     recordids = data["recordids"]
     colnames  = data["colnames"]
-    csvfile   = CSV.File(filename)
+    csvfile   = CSV.File(filename; delim='\t')
     rowkeys   = Set(csvfile.names)  # Column names in filename
     for row in csvfile
         d = Dict{Symbol, Any}(colname => in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in colnames)
@@ -58,13 +58,13 @@ end
 
 function appendrow!(d, persontbl, recordids, colnames)
     rid = recordid(d, colnames)
-    in(recordids, rid) && return  # Person already exists in the Person table
-    d[:recordid] = rid
-    d[:personid] = data["npeople"] + 1
+    in(rid, recordids) && return  # Person already exists in the Person table
+    data["npeople"]    += 1
+    d[:recordid]        = rid
+    d[:personid]        = data["npeople"]
     d[:recordstartdate] = haskey(d, :recordstartdate) ? d[:recordstartdate] : missing
     push!(persontbl, d)
     push!(recordids, rid)
-    data["npeople"] += 1
 end
 
 
