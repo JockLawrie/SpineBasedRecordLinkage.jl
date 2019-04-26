@@ -53,7 +53,8 @@
 
 # TODO
 
-- Implement fuzzy matching
+- When doing fuzzy matching, handle missing data better.
+- Implement aliases for names. E.g., robert, rob, bob, bobby, etc.
 - Implement streaming methods for large files
 - Create a `Libpostal.jl` package.
 - When populating persontable:

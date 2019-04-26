@@ -3,7 +3,8 @@ module config
 export LinkageConfig, LinkagePass, FuzzyMatch
 
 using Schemata
-using YAML
+
+using ..distances
 
 
 ################################################################################
@@ -37,6 +38,11 @@ function LinkagePass(d::Dict)
         for x in fm_specs
             tablecol, personcol = Symbol.(x["columns"])
             distancemetric      = Symbol(x["distancemetric"])
+            if !haskey(distances.metrics, distancemetric)
+                allowed_metrics = sort!(collect(keys(distances.metrics)))
+                msg = "Unknown distance metric in fuzzy match criterion: $(distancemetric).\nMust be one of: $(allowed_metrics)"
+                error(msg)
+            end
             threshold           = x["threshold"]
             fm                  = FuzzyMatch(tablecol, personcol, distancemetric, threshold)
             push!(fuzzymatches, fm)
@@ -49,7 +55,9 @@ end
 ################################################################################
 
 struct LinkageConfig
-    datadir::String
+    inputdir::String
+    outputdir::String
+    datatables::Dict{String, String}   # tablename => filename
     person_schema::TableSchema
     linkmap_schema::TableSchema
     updatepersontable::Vector{String}  # Tables with which to update the Person table directly
@@ -57,22 +65,18 @@ struct LinkageConfig
 end
 
 
-function LinkageConfig(filename::String)
-    d = YAML.load_file(filename)
-    LinkageConfig(d)
-end
-
-
-function LinkageConfig(d::Dict)
-    datadir           = d["datadir"]
-    person_schema     = TableSchema(d["persontable"])
-    linkmap_schema    = TableSchema(d["linkmap"])
-    updatepersontable = haskey(d, "update_person_table") ? d["update_person_table"] : String[]
+function LinkageConfig(linkage::Dict, persontbl::Dict, lmap::Dict)
+    inputdir          = linkage["inputdir"]
+    outputdir         = linkage["outputdir"]
+    datatables        = linkage["datatables"]
+    person_schema     = TableSchema(persontbl)
+    linkmap_schema    = TableSchema(lmap)
+    updatepersontable = haskey(linkage, "update_person_table") ? linkage["update_person_table"] : String[]
     if updatepersontable isa String
         updatepersontable = [updatepersontable]
     end
-    linkagepasses = [LinkagePass(x) for x in d["linkage_passes"]]
-    LinkageConfig(datadir, person_schema, linkmap_schema, updatepersontable, linkagepasses)
+    linkagepasses = [LinkagePass(x) for x in linkage["linkage_passes"]]
+    LinkageConfig(inputdir, outputdir, datatables, person_schema, linkmap_schema, updatepersontable, linkagepasses)
 end
 
 end

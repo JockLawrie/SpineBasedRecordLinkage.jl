@@ -11,41 +11,58 @@ using ..persontable
 using ..linkmap
 
 
-function main(filename::String, data::Dict{String, DataFrame})
+function main(d::Dict)
     @info "Configuring linkage run"
-    cfg = LinkageConfig(filename)
+    cfg = LinkageConfig(d["linkage"], d["persontable"], d["linkmap"])
 
     @info "Initialising the Person table"
-    persontable.init!(joinpath(cfg.datadir, "input", "person.tsv"), cfg.person_schema)
-    @info "The fields that identify a person are\n:    $(persontable.data["colnames"])"
+    persontable.init!(joinpath(cfg.inputdir, "person.tsv"), cfg.person_schema)
+    @info "The fields that identify a person are:\n  $(persontable.data["colnames"])"
+
+    # Update the Person table with new records if they exist
+    if !isempty(cfg.updatepersontable)
+        @info "Updating the Person table"
+        n = size(persontable.data["table"], 1)
+        for tablename in cfg.updatepersontable
+            filename = joinpath(cfg.inputdir, cfg.datatables[tablename])
+            persontable.updatetable!(filename)
+        end
+
+        # Write Person table to disk if there are new records
+        n_new = size(persontable.data["table"], 1)
+        if n_new > n
+            @info "$(n_new - n) new records added to the Person table. Writing to disk."
+            persontable.write_persontable()
+        end
+    end
 
     @info "Initialising the Linkage Map"
-    linkmap.init!(joinpath(cfg.datadir, "input", "linkmap.tsv"), cfg.linkmap_schema)
-
-    @info "Updating the Person table"
-    n = size(persontable.data["table"], 1)
-    for tablename in cfg.updatepersontable
-        persontable.updatetable!(data[tablename])
-    end
-    if size(persontable.data["table"], 1) > n  # New records have been added
-	@info "Writing the Person table to disk"
-	persontable.write_persontable()
-    end
+    linkmap.init!(joinpath(cfg.inputdir, "linkmap.tsv"), cfg.linkmap_schema)
 
     @info "Starting linkage passes"
-    n = 0
+    nlink0  = size(linkmap.data["table"], 1)
+    nlink1  = nlink0
+    nlink2  = nlink0
+    npass   = 0
+    npasses = size(cfg.linkagepasses, 1)
     for linkagepass in cfg.linkagepasses
-        n += 1
-        @info "Linkage pass: $(n)"
+        npass += 1
+        @info "Linkage pass: $(npass) of $(npasses)"
         tablename      = linkagepass.tablename
+        tablefullpath  = joinpath(cfg.inputdir, cfg.datatables[tablename])
         exactmatchcols = linkagepass.exactmatchcols
         fuzzymatches   = linkagepass.fuzzymatches
-        tbl            = data[tablename]
-        linkmap.link!(tablename, tbl, exactmatchcols, fuzzymatches)
+        linkmap.link!(tablename, tablefullpath, exactmatchcols, fuzzymatches)
+        nlink2 = size(linkmap.data["table"], 1)
+        @info "$(nlink2 - nlink1) new records added to the link map."
+        nlink1 = nlink2
     end
 
-    @info "Writing results to disk"
-    linkmap.write_linkmap()
+    # Write linkmap to disk if there are new records
+    if nlink2 > nlink0
+        @info "$(nlink2 - nlink0) new records added to the link map. Writing to disk."
+        linkmap.write_linkmap()
+    end
 end
 
 

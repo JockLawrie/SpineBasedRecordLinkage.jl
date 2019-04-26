@@ -8,6 +8,7 @@ using Schemata
 
 using ..config
 using ..persontable
+using ..distances
 
 const data = Dict("fullpath" => "", "table" => DataFrame())
 
@@ -26,8 +27,8 @@ function init!(fullpath::String, tblschema::TableSchema)
         @info "The linkage map has $(size(tbl, 1)) rows."
     elseif isdir(dirname(fullpath))
         touch(fullpath)  # Create file
-        colnames = tblschema.col_order
-        coltypes = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
+        colnames         = tblschema.col_order
+        coltypes         = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
         data["fullpath"] = fullpath
         data["table"]    = DataFrame(coltypes, colnames, 0)
         @info "The linkage map has 0 rows."
@@ -35,18 +36,6 @@ function init!(fullpath::String, tblschema::TableSchema)
         @error "File name is not valid."
     end
 end
-
-
-#=
-function appendrow!(tblname, r)
-    rid      = persontable.recordid(r)
-    id2index = persontable.data["recordid2index"]
-    if haskey(id2index, rid)
-        x = (tablename=tblname, tablerecordid=r[:recordid], personrecordid=rid)
-        push!(data["table"], x)
-    end
-end
-=#
 
 
 function write_linkmap()
@@ -63,49 +52,72 @@ The subsets are determined by exactmatchcols and fuzzymatch_criteria.
 
 A subset of rows is matched if and only if there is exactly 1 candidate match in the Person table.
 """
-function link!(tablename::String, tbl, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch})
-    linkmap    = data["table"]
-    linkmap    = view(linkmap, linkmap[:tablename] .== tablename, :)
-    linked_ids = Set(linkmap[:tablerecordid])  # Records of tablename that are already linked
-    for subdata in groupby(tbl, exactmatchcols)
-        # Check if there are any records in the group that haven't yet been linked
-        nlinked = 0
-        for r in eachrow(subdata)
-            if in(r[:recordid], linked_ids)      # Record has already been linked
-                nlinked += 1
+function link!(tablename::String, tablefullpath::String, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch})
+    # Init
+    pt          = persontable.data["table"]
+    lmap        = data["table"]
+    linked_tids = Set(view(lmap, lmap[:tablename] .== tablename, :tablerecordid))  # records of tablename that are already linked
+    dist        = fill(0.0, length(fuzzymatches))  # Work space for storing distances
+    nfm         = size(fuzzymatches, 1)
+
+    # Construct recordid => Set(row indices), where recordid = recordid(d, exactmatchcols) and d is a row of the Person table.
+    rid2idx = Dict{String, Set{Int}}()
+    i = 0
+    for r in eachrow(pt)
+        i  += 1
+        rid = persontable.recordid(r, exactmatchcols)
+        if !haskey(rid2idx, rid)
+            rid2idx[rid] = Set{Int}()
+        end
+        push!(rid2idx[rid], i)
+    end
+
+    # For each row of tablename, identify and rank the rows of the Person table that are candidates for matching
+    csvfile = CSV.File(tablefullpath; delim='\t')
+    rowkeys = Set(csvfile.names)  # Column names in filename
+    for row in csvfile
+        # Check whether row is already linked
+        in(row.recordid, linked_tids) && continue
+
+        # Init candidates: matches on exactmatchcols
+        v   = [in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in exactmatchcols]
+        rid = persontable.recordid(v)
+        !haskey(rid2idx, rid) && continue  # row has no match candidates
+        candidates = rid2idx[rid]
+
+        # Select best candidate using fuzzy criteria
+        bestcandidate = (isempty(fuzzymatches) && length(candidates) == 1) ? (i=pop!(deepcopy(candidates)), distance=99.0) : (i=0, distance=99.0)
+        if !isempty(fuzzymatches)
+            for i in candidates
+                # Compute distances
+                i_is_candidate = true
+                fill!(dist, 0.0)
+                for j = 1:nfm
+                    fm      = fuzzymatches[j]
+                    dist[j] = compute_distance(fm.distancemetric, getproperty(row, fm.tablecolumn), pt[i, fm.personcolumn])
+                    if dist[j] > fm.threshold
+                        i_is_candidate = false
+                        break
+                    end
+                end
+                !i_is_candidate && continue
+
+                # Compute overall distance and compare to best candidate
+                d = overalldistance(dist)
+                if d < bestcandidate[:distance]
+                    bestcandidate = (i=i, distance=d)
+                end
             end
         end
-        nlinked == size(subdata, 1) && continue  # All records in the group have already been linked
 
-        # Get candidate rows from the Person table using exact matching
-        p = persontable.data["table"]
-        for colname in exactmatchcols
-            val = subdata[1, colname]
-            if ismissing(val)
-                p = view(p, ismissing.(p[colname]), :)
-            else
-                p = view(p, (.!ismissing.(p[colname])) .& (p[colname] .== val), :)
-            end
-        end
-        size(p, 1) == 0 && continue  # There are no candidates
-
-        # Reduce candidates further with fuzzy matching
-        size(p, 1) != 1 && continue  # Number of candidate matches is not 1
-
-        # Match each row in subdata to the candidate row
-        for r in eachrow(subdata)
-            tid = r[:recordid]
-            in(tid,linked_ids) && continue
-            rid = p[1, :recordid]
-            x   = (tablename=tablename, tablerecordid=tid, personrecordid=rid)
-            push!(data["table"], x)
-        end
+        # Create a new record in the linkmap
+        bestcandidate[:i] == 0 && continue  # No candidate satisfied the matching criteria
+        tid    = row.recordid
+        rid    = pt[bestcandidate[:i], :recordid]
+        newrow = (tablename=tablename, tablerecordid=tid, personrecordid=rid)
+        push!(lmap, newrow)
     end
 end
-
-
-link!(tablename, tbl)                 = link!(tablename, tbl, persontable.data["colnames"], FuzzyMatch[])
-link!(tablename, tbl, exactmatchcols) = link!(tablename, tbl, exactmatchcols, Fuzzymatch[])
 
 
 end

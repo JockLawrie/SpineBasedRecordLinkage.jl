@@ -7,11 +7,11 @@ using DataFrames
 using Logging
 using Schemata
 
-const data = Dict("fullpath" => "",
-                  "table" => DataFrame(),
-                  "colnames" => Symbol[],  # names(table) excluding [:recordid, :personid, :recordstartdate]
-                  "recordid2index" => Dict{String, Int}(),
-                  "npeople" => 0)
+const data = Dict("fullpath"  => "",
+                  "table"     => DataFrame(),
+                  "colnames"  => Symbol[],  # names(table) excluding [:recordid, :personid, :recordstartdate]
+                  "recordids" => Set{String}(),
+                  "npeople"   => 0)
 
 
 function init!(fullpath::String, tblschema::TableSchema)
@@ -24,15 +24,15 @@ function init!(fullpath::String, tblschema::TableSchema)
            issues |> CSV.write(issues_file; delim='\t')
            @warn "There are some data issues. See $(issues_file) for details."
         end
-        data["fullpath"] = fullpath
-        data["table"]    = tbl
-        data["colnames"] = colnames[4:end]
-        data["recordid2index"] = Dict(tbl[i, :recordid] => i for i = 1:size(tbl, 1))
-        data["npeople"]  = length(unique(tbl[:personid]))
+        data["fullpath"]  = fullpath
+        data["table"]     = tbl
+        data["colnames"]  = colnames[4:end]
+        data["recordids"] = Set(tbl[:recordid])
+        data["npeople"]   = length(unique(tbl[:personid]))
         @info "The Person table has $(size(tbl, 1)) rows."
     elseif isdir(dirname(fullpath))
         touch(fullpath)  # Create file
-        coltypes = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
+        coltypes         = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
         data["fullpath"] = fullpath
         data["table"]    = DataFrame(coltypes, colnames, 0)
         data["colnames"] = colnames[4:end]
@@ -43,26 +43,33 @@ function init!(fullpath::String, tblschema::TableSchema)
 end
 
 
-function appendrow!(r, persontbl, id2index)
-    rid = recordid(r)
-    haskey(id2index, rid) && return  # Person already exists in the Person table
-    d            = Dict{Symbol, Any}(colname => haskey(r, colname) ? r[colname] : missing for colname in data["colnames"])
-    d[:recordid] = rid
-    d[:personid] = newpersonid()
-    d[:recordstartdate] = haskey(r, :recordstartdate) ? r[:recordstartdate] : missing
-    push!(persontbl, d)
-    id2index[rid]    = size(persontbl, 1)
-    data["npeople"] += 1
-end
-
-
-function updatetable!(tbl)
-    pt     = data["table"]
-    id2idx = data["recordid2index"]
-    for r in eachrow(tbl)
-        appendrow!(r, pt, id2idx)
+function updatetable!(filename::String)
+    pt        = data["table"]
+    recordids = data["recordids"]
+    colnames  = data["colnames"]
+    csvfile   = CSV.File(filename; delim='\t')
+    rowkeys   = Set(csvfile.names)  # Column names in filename
+    for row in csvfile
+        d = Dict{Symbol, Any}(colname => in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in colnames)
+        appendrow!(d, pt, recordids, colnames)
     end
 end
+
+
+function appendrow!(d, persontbl, recordids, colnames)
+    rid = recordid(d, colnames)
+    in(rid, recordids) && return  # Person already exists in the Person table
+    data["npeople"]    += 1
+    d[:recordid]        = rid
+    d[:personid]        = data["npeople"]
+    d[:recordstartdate] = haskey(d, :recordstartdate) ? d[:recordstartdate] : missing
+    push!(persontbl, d)
+    push!(recordids, rid)
+end
+
+recordid(v::Vector)   = base64encode(hash(v))
+
+recordid(d, colnames) = recordid([d[colname] for colname in colnames])
 
 
 function write_persontable()
@@ -71,17 +78,5 @@ function write_persontable()
     tbl |> CSV.write(fullpath; delim='\t')
 end
 
-
-npeople() = data["npeople"]
-
-
-################################################################################
-# Utils
-
-newpersonid() = haskey(data["table"], :personid) ? npeople() + 1 : 1
-
-recordid(r, colnames) = base64encode(hash([haskey(r, colname) ? r[colname] : missing for colname in colnames]))
-
-recordid(r) = recordid(r, data["colnames"])
 
 end
