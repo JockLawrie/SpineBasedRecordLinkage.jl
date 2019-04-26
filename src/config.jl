@@ -4,6 +4,8 @@ export LinkageConfig, LinkagePass, FuzzyMatch
 
 using Schemata
 
+using ..distances
+
 
 ################################################################################
 
@@ -36,6 +38,11 @@ function LinkagePass(d::Dict)
         for x in fm_specs
             tablecol, personcol = Symbol.(x["columns"])
             distancemetric      = Symbol(x["distancemetric"])
+            if !haskey(distances.metrics, distancemetric)
+                allowed_metrics = sort!(collect(keys(distances.metrics)))
+                msg = "Unknown distance metric in fuzzy match criterion: $(distancemetric).\nMust be one of: $(allowed_metrics)"
+                error(msg)
+            end
             threshold           = x["threshold"]
             fm                  = FuzzyMatch(tablecol, personcol, distancemetric, threshold)
             push!(fuzzymatches, fm)

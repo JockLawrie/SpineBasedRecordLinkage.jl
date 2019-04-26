@@ -40,22 +40,27 @@ function main(d::Dict)
     linkmap.init!(joinpath(cfg.inputdir, "linkmap.tsv"), cfg.linkmap_schema)
 
     @info "Starting linkage passes"
-    nlink = size(linkmap.data["table"], 1)
-    npass = 0
+    nlink0  = size(linkmap.data["table"], 1)
+    nlink1  = nlink0
+    nlink2  = nlink0
+    npass   = 0
+    npasses = size(cfg.linkagepasses, 1)
     for linkagepass in cfg.linkagepasses
         npass += 1
-        @info "Linkage pass: $(npass)"
+        @info "Linkage pass: $(npass) of $(npasses)"
         tablename      = linkagepass.tablename
         tablefullpath  = joinpath(cfg.inputdir, cfg.datatables[tablename])
         exactmatchcols = linkagepass.exactmatchcols
         fuzzymatches   = linkagepass.fuzzymatches
         linkmap.link!(tablename, tablefullpath, exactmatchcols, fuzzymatches)
+        nlink2 = size(linkmap.data["table"], 1)
+        @info "$(nlink2 - nlink1) new records added to the link map."
+        nlink1 = nlink2
     end
 
     # Write linkmap to disk if there are new records
-    nlink_new = size(linkmap.data["table"], 1)
-    if nlink_new > nlink
-        @info "$(nlink_new - nlink) new records added to the link map. Writing to disk."
+    if nlink2 > nlink0
+        @info "$(nlink2 - nlink0) new records added to the link map. Writing to disk."
         linkmap.write_linkmap()
     end
 end

@@ -53,9 +53,8 @@
 
 # TODO
 
-- Implement fuzzy matching
-- Currently we only match a record if there is exactly 1 candidate match in the Person table.
-  With fuzzy matching, we can instead rank multiple candidate matches and select the highest ranking candidate.
+- When doing fuzzy matching, handle missing data better.
+- Implement aliases for names. E.g., robert, rob, bob, bobby, etc.
 - Implement streaming methods for large files
 - Create a `Libpostal.jl` package.
 - When populating persontable:

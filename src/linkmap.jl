@@ -8,6 +8,7 @@ using Schemata
 
 using ..config
 using ..persontable
+using ..distances
 
 const data = Dict("fullpath" => "", "table" => DataFrame())
 
@@ -56,6 +57,8 @@ function link!(tablename::String, tablefullpath::String, exactmatchcols::Vector{
     pt          = persontable.data["table"]
     lmap        = data["table"]
     linked_tids = Set(view(lmap, lmap[:tablename] .== tablename, :tablerecordid))  # records of tablename that are already linked
+    dist        = fill(0.0, length(fuzzymatches))  # Work space for storing distances
+    nfm         = size(fuzzymatches, 1)
 
     # Construct recordid => Set(row indices), where recordid = recordid(d, exactmatchcols) and d is a row of the Person table.
     rid2idx = Dict{String, Set{Int}}()
@@ -82,36 +85,33 @@ function link!(tablename::String, tablefullpath::String, exactmatchcols::Vector{
         !haskey(rid2idx, rid) && continue  # row has no match candidates
         candidates = rid2idx[rid]
 
-        # Select best candidate: best match using fuzzy criteria
-        #=
-        bestcandidate = (i=0, distance=9999.0)
-        dist = fill(0.0, length(fuzzymatches))  # Work space for storing distances
-        nfm  = size(fuzzymatches, 1)
-        for i in candidates
-            # Compute distances
-            i_is_candidate = true
-            fill!(dist, 0.0)
-            for j = 1:nfm
-                fm      = fuzzymatches[j]
-                dist[j] = compute_distance(row, pt[i, :], fm)
-                if dist[j] > fm.threshold
-                    i_is_candidate = false
-                    break
+        # Select best candidate using fuzzy criteria
+        bestcandidate = (isempty(fuzzymatches) && length(candidates) == 1) ? (i=pop!(deepcopy(candidates)), distance=99.0) : (i=0, distance=99.0)
+        if !isempty(fuzzymatches)
+            for i in candidates
+                # Compute distances
+                i_is_candidate = true
+                fill!(dist, 0.0)
+                for j = 1:nfm
+                    fm      = fuzzymatches[j]
+                    dist[j] = compute_distance(fm.distancemetric, getproperty(row, fm.tablecolumn), pt[i, fm.personcolumn])
+                    if dist[j] > fm.threshold
+                        i_is_candidate = false
+                        break
+                    end
+                end
+                !i_is_candidate && continue
+
+                # Compute overall distance and compare to best candidate
+                d = overalldistance(dist)
+                if d < bestcandidate[:distance]
+                    bestcandidate = (i=i, distance=d)
                 end
             end
-            !i_is_candidate && continue
-
-            # Compute overall distance and compare to best candidate
-            d = overalldistance(dist)
-            if d < bestcandidate[:distance]
-                bestcandidate = (i=i, distance=d)
-            end
         end
-        =#
 
         # Create a new record in the linkmap
-length(candidates) != 1 && continue
-bestcandidate = (i=pop!(deepcopy(candidates)), distance=9999.0)
+        bestcandidate[:i] == 0 && continue  # No candidate satisfied the matching criteria
         tid    = row.recordid
         rid    = pt[bestcandidate[:i], :recordid]
         newrow = (tablename=tablename, tablerecordid=tid, personrecordid=rid)
