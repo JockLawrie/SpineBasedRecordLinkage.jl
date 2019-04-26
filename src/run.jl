@@ -28,7 +28,7 @@ function main(d::Dict)
             persontable.updatetable!(filename)
         end
 
-        # Write to disk if there are new records
+        # Write Person table to disk if there are new records
         n_new = size(persontable.data["table"], 1)
         if n_new > n
             @info "$(n_new - n) new records added to the Person table. Writing to disk."
@@ -40,19 +40,24 @@ function main(d::Dict)
     linkmap.init!(joinpath(cfg.inputdir, "linkmap.tsv"), cfg.linkmap_schema)
 
     @info "Starting linkage passes"
-    n = 0
+    nlink = size(linkmap.data["table"], 1)
+    npass = 0
     for linkagepass in cfg.linkagepasses
-        n += 1
-        @info "Linkage pass: $(n)"
+        npass += 1
+        @info "Linkage pass: $(npass)"
         tablename      = linkagepass.tablename
-        tablefile      = joinpath(cfg.inputdir, cfg.datatables[tablename])
+        tablefullpath  = joinpath(cfg.inputdir, cfg.datatables[tablename])
         exactmatchcols = linkagepass.exactmatchcols
         fuzzymatches   = linkagepass.fuzzymatches
-        linkmap.link!(tablename, tablefile, exactmatchcols, fuzzymatches)
+        linkmap.link!(tablename, tablefullpath, exactmatchcols, fuzzymatches)
     end
 
-    @info "Writing results to disk"
-    linkmap.write_linkmap()
+    # Write linkmap to disk if there are new records
+    nlink_new = size(linkmap.data["table"], 1)
+    if nlink_new > nlink
+        @info "$(nlink_new - nlink) new records added to the link map. Writing to disk."
+        linkmap.write_linkmap()
+    end
 end
 
 

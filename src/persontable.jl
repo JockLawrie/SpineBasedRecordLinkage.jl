@@ -67,8 +67,9 @@ function appendrow!(d, persontbl, recordids, colnames)
     push!(recordids, rid)
 end
 
+recordid(v::Vector)   = base64encode(hash(v))
 
-recordid(d, colnames) = base64encode(hash([d[colname] for colname in colnames]))
+recordid(d, colnames) = recordid([d[colname] for colname in colnames])
 
 
 function write_persontable()

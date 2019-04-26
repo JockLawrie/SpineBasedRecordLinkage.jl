@@ -54,6 +54,8 @@
 # TODO
 
 - Implement fuzzy matching
+- Currently we only match a record if there is exactly 1 candidate match in the Person table.
+  With fuzzy matching, we can instead rank multiple candidate matches and select the highest ranking candidate.
 - Implement streaming methods for large files
 - Create a `Libpostal.jl` package.
 - When populating persontable:
