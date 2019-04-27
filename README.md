@@ -1,58 +1,65 @@
 # RecordLinkage.jl
 
+Record linkage in Julia, configurable in YAML.
+
 ## Methodology
 
+The central concepts are described here. See below for an example.
+
 1. Define a central `Person` table.
-   - A DataFrame with each row representing a person for a specified date range.
-   - The columns are: personid, recordstartdate, firstname, middlename, lastname, sex, birthdate, deathdate, streetaddress, postcode, locality, state, medicarenumber (first 8 digits).
+   - This is a DataFrame with each row representing a person for a specified time period.
+   - The columns are: recordid, personid, recordstartdate, columns that identify a person.
+   - For example, the identifying columns typically include:
+       firstname, middlename, lastname, gender, birthdate, deathdate, streetaddress, postcode, locality, state.
+   - The format for each column is specified by a `Schema` as provided by the `Schemata` package.
+     This explicitly specifies data standardisation and implicitly enforces the requirements of the pre-processing stage.
    - People can have multiple records, for example if they change their name or address.
    - People with multiple records will have the same `personid`.
    - Therefore the primary key of the table is [`personid`, `recordstartdate`]
-   - Set `recordid = hash((col1=val1,...))"`, for columns other than `personid` and `recordstartdate`.
-     This serves as a quick lookup and also defines a primary key (it is one-to-one to the primary key).
+   - This package sets `recordid = base64encode(hash(vals...))"`, where vals are the values of all columns other than `personid` and `recordstartdate`.
 
-2. Define a standard format for each column in the Person table.
-   This minimises record duplication and implicitly specifies the data pre-processing steps.
-   We specify the formats in a schema.
-
-3. Initialise a persistent linkage map in which each row defines a match between a person in the `Person` table and a record in another table of interest.
+2. A persistent linkage map is initialised.
+   Each row defines a match between a record in the `Person` table and a record in another table of interest.
    - The columns are: `tablename`, `tablerecordid`, `personrecordid`.
    - Note that this table implicitly defines matches between records of different tables of interest.
-     That is, 2 records from different tables that link to the same `personid` are implicitly matched.
-   - The linkage map avoids the need to rerun the linkage algorithm on historical data, thus yielding faster linkage on new data.
+     That is, 2 records from different tables that link to the same record in the `Person` table are implicitly matched.
+   - The linkage map also avoids the need to rerun the linkage algorithm on historical data, thus yielding faster linkage on new data.
 
-4. Undertake pre-processing.
-   This is the data cleaning and formatting implied by the standardised field formats defined in Step 2.
+3. Ensure that each table to be linked to the `Person` table has a `recordid` column with unique values and no missing values.
 
-5. Ensure that each table has a persistent unique row identifier (`recordid`).
-   This facilitates the persistent linkage map.
-   For example, set `recordid = hash((col1=val1,...))` for all columns in the table that are also columns of the Person table.
+4. A _linkage run_ is a pipeline with the following stages:
+   - Pre-processing: Transforming the input data into the standardised formats present in the `Person` table.
+   - Linkage:        For each table in your data set, try to match each record to a record in the `Person` table. The results are recorded in the linkage map.
+   - Reporting:      Summarise the results of the linkage run, including how many records were matched and how.
 
-6. Exact matching on all fields.
-   For each record in a given table of interest:
-   - Test whether the person specified by the record is in the Person table.
-   - If so, make an entry in the linkage map.
+5. The `linkage` stage consists of an ordered sequence of _linkage passes_.
+   Each linkage pass specifies:
+   - The name of the table to be linked.
+   - The set of columns on which both records in a matched pair must match exactly.
+   - A set of fuzzy match criteria.
 
-7. Exact matching on some fields.
-   For each table of interest:
-   a. Select the columns for exact matching.
-   b. Construct an index for the selected columns, defined uniquely and persistently based on the values in the columns. Here we use `rowid = hash(col1=val1, ...)`.
-   c. Construct a smaller table consisting of the `recordid` from Step 5 and the `rowid` defined in 7b.
-   d. Repeat for the Person table, yielding a table with columns `recordid` and `rowid`.
-   e. Join these smaller tables on the `rowid` fields constructed in Steps 7b and 7d.
-   f. Append the matched records to the persistent linkage map.
+   Note that multiple linkage passes can be made against the same table. For example, you can match on name and birth date, then on name and address.
 
-8. Fuzzy matching.
-   For each table of interest:
-   a. Specify columns on which exact matching is required.
-   b. Identify groups of records defined by these columns.
-   For each unmatched record in each group:
-    - Construct distance matrix
-    - Set distance threshold
-    - Apply distance matrix
+6. Each fuzzy match criterion must specify:
+   - The pair of columns being compared (1 in the data table and 1 in the `Person` table).
+   - A distance metric, which quantifies how "close" the pair of values is.
+   - A threshold, below which the pair of values is considered sufficently close.
 
-# TODO
+7. If no fuzzy matching criteria are specified then a record can only be linked to the `Person` table if there is exactly 1 candidate match in the `Person` table.
 
+8. If fuzzy matching criteria are specified and there are several candidate matches in the `Person` table, then:
+   - For each candidate record an overall distance between it and the data record is calculated.
+     This distance is calculated as the sum of the individual column distances specified by the fuzzy match criteria.
+   - The best candidate is that with the smallest distance from the data record.
+     This is deemed the matching record.
+
+
+## Example Usage
+
+
+## TODO
+
+- Implement the reporting stage
 - When doing fuzzy matching, handle missing data better.
 - Implement aliases for names. E.g., robert, rob, bob, bobby, etc.
 - Implement streaming methods for large files
