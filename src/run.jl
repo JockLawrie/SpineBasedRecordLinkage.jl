@@ -1,6 +1,6 @@
 module run
 
-export main
+export linkagerun
 
 using DataFrames
 using Logging
@@ -11,12 +11,31 @@ using ..persontable
 using ..linkmap
 
 
-function main(d::Dict)
+"Run the entire data linkage pipeline."
+function linkagerun(d::Dict, preprocessing_stage::Function)
+    @info "Starting linkage pipeline"
+    for stage in d["stages"]
+        if stage == "preprocessing"
+            @info "Starting stage: preprocessing"
+            preprocessing_stage(d["preprocessing"])
+        elseif stage == "linkage"
+            @info "Starting stage: linkage"
+            linkage_stage(d)
+        else
+            error("Unknown stage: $(stage)")
+        end
+    end
+    @info "Finished linkage pipeline"
+end
+
+
+
+function linkage_stage(d::Dict)
     @info "Configuring linkage run"
     cfg = LinkageConfig(d["linkage"], d["persontable"], d["linkmap"])
 
     @info "Initialising the Person table"
-    persontable.init!(joinpath(cfg.inputdir, "person.tsv"), cfg.person_schema)
+    persontable.init!(joinpath(cfg.outputdir, "person.tsv"), cfg.person_schema)
     @info "The fields that identify a person are:\n  $(persontable.data["colnames"])"
 
     # Update the Person table with new records if they exist
@@ -37,7 +56,7 @@ function main(d::Dict)
     end
 
     @info "Initialising the Linkage Map"
-    linkmap.init!(joinpath(cfg.inputdir, "linkmap.tsv"), cfg.linkmap_schema)
+    linkmap.init!(joinpath(cfg.outputdir, "linkmap.tsv"), cfg.linkmap_schema)
 
     @info "Starting linkage passes"
     nlink0  = size(linkmap.data["table"], 1)

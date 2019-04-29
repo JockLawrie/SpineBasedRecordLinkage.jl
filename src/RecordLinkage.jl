@@ -1,5 +1,7 @@
 module RecordLinkage
 
+export linkagerun
+
 include("distances.jl")
 include("config.jl")
 include("persontable.jl")
