@@ -90,7 +90,7 @@ preprocessing:
     outputdir: "/projects/recordlinkage/data/preprocessed"
     datatables:
         table1_raw: {infile: "table1.csv", outfile: "preprocessed_table1.tsv"}
-        table2_raw: {infile: "table2.csv", outfile: "preprocessed_table2vdi.tsv"}
+        table2_raw: {infile: "table2.csv", outfile: "preprocessed_table2.tsv"}
 
 #########################################################################################################
 # LINKAGE
