@@ -1,6 +1,6 @@
 module run
 
-export linkagerun
+export run_linkage_pipeline
 
 using DataFrames
 using Logging
@@ -12,15 +12,15 @@ using ..linkmap
 
 
 "Run the entire data linkage pipeline."
-function linkagerun(d::Dict, preprocessing_stage::Function)
+function run_linkage_pipeline(d::Dict, run_preprocessing_stage::Function)
     @info "Starting linkage pipeline"
     for stage in d["stages"]
         if stage == "preprocessing"
             @info "Starting stage: preprocessing"
-            preprocessing_stage(d["preprocessing"])
+            run_preprocessing_stage(d["preprocessing"])
         elseif stage == "linkage"
             @info "Starting stage: linkage"
-            linkage_stage(d)
+            run_linkage_stage(d)
         else
             error("Unknown stage: $(stage)")
         end
@@ -30,7 +30,7 @@ end
 
 
 
-function linkage_stage(d::Dict)
+function run_linkage_stage(d::Dict)
     @info "Configuring linkage run"
     cfg = LinkageConfig(d["linkage"], d["persontable"], d["linkmap"])
 

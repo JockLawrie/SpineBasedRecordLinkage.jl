@@ -1,6 +1,6 @@
 module RecordLinkage
 
-export linkagerun
+export run_linkage_pipeline
 
 include("distances.jl")
 include("config.jl")

@@ -71,7 +71,7 @@ using YAML
 
 d = YAML.load_file("myconfig.yaml")
 # Define preprocessing function here
-linkagerun(d, preprocessing_func)
+run_linkage_pipeline(d, preprocessing_func)
 ```
 
 Here is the config file, _myconfig.yaml_. Note that the `Person` table and the linkage map are defined using the [Schemata](https://github.com/JockLawrie/Schemata.jl) package.
