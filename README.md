@@ -56,6 +56,99 @@ The central concepts are described here. See below for an example.
 
 ## Example Usage
 
+To enable a linkage run you need to provide:
+1. A YAML file that specifies the linkage run's configuration. See the example below.
+
+2. A function for performing the preprocessing stage (since this will be specific to your data sets).
+The preprocessing function takes a single argument, namely the `Dict` specified in the `preprocessing` stage of your config file.
+By convention the function reads in data from the specified input location, transforms it as required, then writes it to the specified output location. However, you can have it do anything you like provided it takes the `Dict` specified in the `preprocessing` stage of your config file.
+
+Once this is done you can run some code like the following:
+
+```julia
+using RecordLinkage
+using YAML
+
+d = YAML.load_file("myconfig.yaml")
+# Define preprocessing function here
+linkagerun(d, preprocessing_func)
+```
+
+Here is the config file, _myconfig.yaml_. Note that the `Person` table and the linkage map are defined using the [Schemata](https://github.com/JockLawrie/Schemata.jl) package.
+
+```
+#########################################################################################################
+# PIPELINE
+
+stages: [preprocessing, linkage]
+
+#########################################################################################################
+# PREPROCESSING
+
+preprocessing:
+    inputdir:  "/projects/recordlinkage/data/input"
+    outputdir: "/projects/recordlinkage/data/preprocessed"
+    datatables:
+        table1_raw: {infile: "table1.csv", outfile: "preprocessed_table1.tsv"}
+        table2_raw: {infile: "table2.csv", outfile: "preprocessed_table2vdi.tsv"}
+
+#########################################################################################################
+# LINKAGE
+
+linkage:
+    inputdir:  "/projects/recordlinkage/data/preprocessed"
+    outputdir: "/projects/recordlinkage/data/linked"
+    datatables:
+        table1: "preprocessed_table1.tsv"
+        table2: "preprocessed_table2.tsv"
+    update_person_table: table1
+    linkage_passes:
+        - {tablename: table1, exactmatch_columns: [firstname, middlename, lastname, birthdate, gender, streetaddress, locality, postcode, state]}
+        - {tablename: table2, exactmatch_columns: [firstname, lastname, birthdate, gender]}
+        - {tablename: table2, exactmatch_columns: [firstname, lastname, birthdate]}
+        - {tablename: table2, exactmatch_columns: [birthdate, gender],
+                              fuzzymatches: [{columns: [firstname, firstname], distancemetric: levenshtein, threshold: 0.2},
+                                             {columns: [lastname,  lastname],  distancemetric: levenshtein, threshold: 0.2}]}
+
+#########################################################################################################
+# DEFINITION OF PERSON
+
+persontable:
+    name: person
+    description: Person table
+    primary_key: recordid
+    columns:
+        - recordid: {description: Record ID, datatype: String, categorical: false, required: true, unique: true,  validvalues: String}
+        - personid: {description: Person ID, datatype: Int,    categorical: false, required: true, unique: false, validvalues: Int}
+        - recordstartdate: {description: Date from which the record is valid,
+                            datatype: Date, categorical: false, required: false, unique: false, validvalues: Date}
+        - firstname:  {description: First name, datatype: String, categorical: false, required: false, unique: false, validvalues: String}
+        - middlename: {description: Middle name, datatype: String, categorical: false, required: false, unique: false, validvalues: String}
+        - lastname:   {description: Last name, datatype: String, categorical: false, required: false, unique: false, validvalues: String}
+        - birthdate:  {description: Birth date, datatype: Date, categorical: false, required: false, unique: false, validvalues: Date}
+        - deathdate:  {description: Date of death, datatype: Date, categorical: false, required: false, unique: false, validvalues: Date}
+        - gender:     {description: Gender, datatype: String, categorical: true, required: false, unique: false, validvalues: ["m", "f"]}
+        - streetaddress:  {description: "Street address (street name and number)",
+                           datatype: String, categorical: false, required: false, unique: false, validvalues: String}
+        - locality:       {description: "Locality (typically suburb)",
+                           datatype: String, categorical: false, required: false, unique: false, validvalues: String}
+        - postcode:       {description: Post code, datatype: Int, categorical: false, required: false, unique: false, validvalues: "1000:9999"}
+        - state:          {description: State, datatype: String,  categorical: true,  required: false, unique: false,
+                           validvalues: ["ACT", "NSW", "NT", "SA", "QLD", "TAS", "VIC", "WA"]}
+
+#########################################################################################################
+# DEFINITION OF LINKMAP
+
+linkmap:
+    name: linkmap
+    description: Linkage map
+    primary_key: [tablename, tablerecordid, personrecordid]
+    columns:
+        - tablename:      {description: Data table name,             datatype: String, categorical: false, required: true, unique: false, validvalues: String}
+        - tablerecordid:  {description: Record ID from data table,   datatype: String, categorical: false, required: true, unique: false, validvalues: String}
+        - personrecordid: {description: Record ID from person table, datatype: String, categorical: false, required: true, unique: false, validvalues: String}
+```
+
 
 ## TODO
 
