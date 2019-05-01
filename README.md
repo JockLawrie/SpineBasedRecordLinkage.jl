@@ -27,7 +27,7 @@ The central concepts are described here. See below for an example.
 
 3. Ensure that each table to be linked to the `Person` table has a `recordid` column with unique values and no missing values.
 
-4. A _linkage run_ is a pipeline with the following stages:
+4. A linkage pipeline has the following stages:
    - Pre-processing: Transforming the input data into the standardised formats present in the `Person` table.
    - Linkage:        For each table in your data set, try to match each record to a record in the `Person` table. The results are recorded in the linkage map.
    - Reporting:      Summarise the results of the linkage run, including how many records were matched and how.
@@ -43,7 +43,7 @@ The central concepts are described here. See below for an example.
 6. Each fuzzy match criterion must specify:
    - The pair of columns being compared (1 in the data table and 1 in the `Person` table).
    - A distance metric, which quantifies how "close" the pair of values is.
-   - A threshold, below which the pair of values is considered sufficently close.
+   - A threshold, below which the pair of values is considered sufficiently close.
 
 7. If no fuzzy matching criteria are specified then a record can only be linked to the `Person` table if there is exactly 1 candidate match in the `Person` table.
 
@@ -56,10 +56,10 @@ The central concepts are described here. See below for an example.
 
 ## Example Usage
 
-To enable a linkage run you need to provide:
-1. A YAML file that specifies the linkage run's configuration. See the example below.
+To run a linkage pipeline you need to provide:
+1. A YAML file that specifies the pipeline's configuration. See the example below.
 
-2. A function for performing the preprocessing stage (since this will be specific to your data sets).
+2. A function for performing the preprocessing stage, since this will be specific to your data.
 The preprocessing function takes a single argument, namely the `Dict` specified in the `preprocessing` stage of your config file.
 By convention the function reads in data from the specified input location, transforms it as required, then writes it to the specified output location. However, you can have it do anything you like provided it takes the `Dict` specified in the `preprocessing` stage of your config file.
 
@@ -144,7 +144,6 @@ linkmap:
     description: Linkage map
     primary_key: [tablename, tablerecordid, personrecordid]
     columns:
-        - tablename:      {description: Data table name,             datatype: String, categorical: false, required: true, unique: false, validvalues: String}
         - tablerecordid:  {description: Record ID from data table,   datatype: String, categorical: false, required: true, unique: false, validvalues: String}
         - personrecordid: {description: Record ID from person table, datatype: String, categorical: false, required: true, unique: false, validvalues: String}
 ```
@@ -155,7 +154,6 @@ linkmap:
 - Implement the reporting stage
 - When doing fuzzy matching, handle missing data better.
 - Implement aliases for names. E.g., robert, rob, bob, bobby, etc.
-- Implement streaming methods for large files
 - Create a `Libpostal.jl` package.
 - When populating persontable:
     - Combine rows that are probably the same person (needs fuzzy matching).
