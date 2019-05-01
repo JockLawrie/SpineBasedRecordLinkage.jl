@@ -38,29 +38,47 @@ function init!(fullpath::String, tblschema::TableSchema)
 end
 
 
-function write_linkmap()
-    tbl      = data["table"]
-    fullpath = data["fullpath"]
-    tbl |> CSV.write(fullpath; delim='\t')
-end
-
-
 """
 Match subsets of rows of the input table to exactly one person in the Person table.
 
-The subsets are determined by exactmatchcols and fuzzymatch_criteria.
+The subsets are determined by exactmatchcols and the fuzzymatch criteria.
 
-A subset of rows is matched if and only if there is exactly 1 candidate match in the Person table.
+For a given row of the data table:
+- If there are no fuzzy match criteria and there is more than 1 candidate match then the row is left unlinked
+- If there are fuzzy match criteria then the best candidate match (that with the smallest distance from the row) is selected
 """
 function link!(tablename::String, tablefullpath::String, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch})
-    # Init
     pt          = persontable.data["table"]
     lmap        = data["table"]
     linked_tids = Set(view(lmap, lmap[:tablename] .== tablename, :tablerecordid))  # records of tablename that are already linked
-    dist        = fill(0.0, length(fuzzymatches))  # Work space for storing distances
-    nfm         = size(fuzzymatches, 1)
+    dist        = fill(0.0, length(fuzzymatches))        # Work space for storing distances
+    rid2idx     = construct_rid2idx(pt, exactmatchcols)  # recordid => Set(row indices), where recordid = recordid(d, exactmatchcols) and d is a row of the Person table.
+    csvfile     = CSV.File(tablefullpath; delim='\t')
+    rowkeys     = Set(csvfile.names)  # Column names in data table
+    for row in csvfile
+        # Check whether row is already linked
+        in(row.recordid, linked_tids) && continue
 
-    # Construct recordid => Set(row indices), where recordid = recordid(d, exactmatchcols) and d is a row of the Person table.
+        # Init candidate matches: matches on exactmatchcols
+        v   = [in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in exactmatchcols]
+        rid = persontable.recordid(v)
+        !haskey(rid2idx, rid) && continue  # row has no candidate matches
+        candidates = rid2idx[rid]
+
+        # Select best candidate using fuzzy criteria
+        bestcandidate = select_best_candidate(row, candidates, pt, fuzzymatches, dist)
+
+        # Create a new record in the linkmap
+        bestcandidate[:i] == 0 && continue  # No candidate satisfied the matching criteria
+        tid    = row.recordid
+        rid    = pt[bestcandidate[:i], :recordid]
+        newrow = (tablename=tablename, tablerecordid=tid, personrecordid=rid)
+        push!(lmap, newrow)
+    end
+end
+
+
+function construct_rid2idx(pt, exactmatchcols)
     rid2idx = Dict{String, Set{Int}}()
     i = 0
     for r in eachrow(pt)
@@ -71,52 +89,43 @@ function link!(tablename::String, tablefullpath::String, exactmatchcols::Vector{
         end
         push!(rid2idx[rid], i)
     end
+    rid2idx
+end
 
-    # For each row of tablename, identify and rank the rows of the Person table that are candidates for matching
-    csvfile = CSV.File(tablefullpath; delim='\t')
-    rowkeys = Set(csvfile.names)  # Column names in filename
-    for row in csvfile
-        # Check whether row is already linked
-        in(row.recordid, linked_tids) && continue
 
-        # Init candidates: matches on exactmatchcols
-        v   = [in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in exactmatchcols]
-        rid = persontable.recordid(v)
-        !haskey(rid2idx, rid) && continue  # row has no match candidates
-        candidates = rid2idx[rid]
-
-        # Select best candidate using fuzzy criteria
-        bestcandidate = (isempty(fuzzymatches) && length(candidates) == 1) ? (i=pop!(deepcopy(candidates)), distance=99.0) : (i=0, distance=99.0)
-        if !isempty(fuzzymatches)
-            for i in candidates
-                # Compute distances
-                i_is_candidate = true
-                fill!(dist, 0.0)
-                for j = 1:nfm
-                    fm      = fuzzymatches[j]
-                    dist[j] = compute_distance(fm.distancemetric, getproperty(row, fm.tablecolumn), pt[i, fm.personcolumn])
-                    if dist[j] > fm.threshold
-                        i_is_candidate = false
-                        break
-                    end
-                end
-                !i_is_candidate && continue
-
-                # Compute overall distance and compare to best candidate
-                d = overalldistance(dist)
-                if d < bestcandidate[:distance]
-                    bestcandidate = (i=i, distance=d)
-                end
+function select_best_candidate(row, candidates::Set{Int}, pt, fuzzymatches::Vector{FuzzyMatch}, dist::Vector{Float64})
+    isempty(fuzzymatches) && length(candidates) == 1 && return (i=pop!(deepcopy(candidates)), distance=99.0)
+    isempty(fuzzymatches) && return (i=0, distance=99.0)
+    bestcandidate = (i=0, distance=99.0)
+    nfm = size(fuzzymatches, 1)
+    for i in candidates
+        # Compute distances
+        i_is_candidate = true
+        fill!(dist, 0.0)
+        for j = 1:nfm
+            fm      = fuzzymatches[j]
+            dist[j] = compute_distance(fm.distancemetric, getproperty(row, fm.tablecolumn), pt[i, fm.personcolumn])
+            if dist[j] > fm.threshold
+                i_is_candidate = false
+                break
             end
         end
+        !i_is_candidate && continue
 
-        # Create a new record in the linkmap
-        bestcandidate[:i] == 0 && continue  # No candidate satisfied the matching criteria
-        tid    = row.recordid
-        rid    = pt[bestcandidate[:i], :recordid]
-        newrow = (tablename=tablename, tablerecordid=tid, personrecordid=rid)
-        push!(lmap, newrow)
+        # Compute overall distance and compare to best candidate
+        d = overalldistance(dist)
+        if d < bestcandidate[:distance]
+            bestcandidate = (i=i, distance=d)
+        end
     end
+    bestcandidate
+end
+
+
+function write_linkmap()
+    tbl      = data["table"]
+    fullpath = data["fullpath"]
+    tbl |> CSV.write(fullpath; delim='\t')
 end
 
 
