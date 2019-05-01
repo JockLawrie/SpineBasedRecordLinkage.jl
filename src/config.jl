@@ -66,8 +66,10 @@ end
 
 
 function LinkageConfig(linkage::Dict, persontbl::Dict, lmap::Dict)
-    inputdir          = linkage["inputdir"]
-    outputdir         = linkage["outputdir"]
+    inputdir   = linkage["inputdir"]
+    outputdir  = linkage["outputdir"]
+    !isdir(inputdir)  && error("The input directory for the linkage stage does not exist.")
+    !isdir(outputdir) && error("The output directory for the linkage stage does not exist.")
     datatables        = linkage["datatables"]
     person_schema     = TableSchema(persontbl)
     linkmap_schema    = TableSchema(lmap)
@@ -76,6 +78,7 @@ function LinkageConfig(linkage::Dict, persontbl::Dict, lmap::Dict)
         updatepersontable = [updatepersontable]
     end
     linkagepasses = [LinkagePass(x) for x in linkage["linkage_passes"]]
+    sort!(linkagepasses, by=(lp) -> lp.tablename)
     LinkageConfig(inputdir, outputdir, datatables, person_schema, linkmap_schema, updatepersontable, linkagepasses)
 end
 

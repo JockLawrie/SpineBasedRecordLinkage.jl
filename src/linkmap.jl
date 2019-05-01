@@ -10,35 +10,30 @@ using ..config
 using ..persontable
 using ..distances
 
-const data = Dict("fullpath" => "", "table" => DataFrame())
 
-
-function init!(fullpath::String, tblschema::TableSchema)
-    if isfile(fullpath)
-        tbl = DataFrame(CSV.File(fullpath; delim='\t'))
-        tbl, issues = enforce_schema(tbl, tblschema, false)
-        if size(issues, 1) > 0
-            issues_file = joinpath(dirname(fullpath), "linkmap_issues.tsv")
-            issues |> CSV.write(issues_file; delim='\t')
-            @warn "There are some data issues. See $(issues_file) for details."
+function init!(cfg::LinkageConfig)
+    lmschema    = cfg.linkmap_schema
+    tables_done = Set{String}()
+    for linkagepass in cfg.linkagepasses
+        tablename = linkagepass.tablename
+        in(tablename, tables_done) && continue
+        push!(tables_done, tablename)
+        linkmapfile = joinpath(cfg.outputdir, "linkmap_$(tablename).tsv")
+        if isfile(linkmapfile)
+            # TODO: Check that the linkmap matches the schema
+        else
+            colnames = lmschema.col_order
+            coltypes = [Union{Missing, lmschema.columns[colname].eltyp} for colname in colnames]
+            lmap     = DataFrame(coltypes, colnames, 0)
+            lmap |> CSV.write(linkmapfile; delim='\t')
         end
-        data["fullpath"] = fullpath
-        data["table"]    = tbl
-        @info "The linkage map has $(size(tbl, 1)) rows."
-    elseif isdir(dirname(fullpath))
-        touch(fullpath)  # Create file
-        colnames         = tblschema.col_order
-        coltypes         = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
-        data["fullpath"] = fullpath
-        data["table"]    = DataFrame(coltypes, colnames, 0)
-        @info "The linkage map has 0 rows."
-    else
-        @error "File name is not valid."
     end
 end
 
 
 """
+Modified: newrows, linked_tids
+
 Match subsets of rows of the input table to exactly one person in the Person table.
 
 The subsets are determined by exactmatchcols and the fuzzymatch criteria.
@@ -46,15 +41,18 @@ The subsets are determined by exactmatchcols and the fuzzymatch criteria.
 For a given row of the data table:
 - If there are no fuzzy match criteria and there is more than 1 candidate match then the row is left unlinked
 - If there are fuzzy match criteria then the best candidate match (that with the smallest distance from the row) is selected
+
+INPUT
+- linked_tids: records of tablename that are already linked
 """
-function link!(tablename::String, tablefullpath::String, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch})
-    pt          = persontable.data["table"]
-    lmap        = data["table"]
-    linked_tids = Set(view(lmap, lmap[:tablename] .== tablename, :tablerecordid))  # records of tablename that are already linked
-    dist        = fill(0.0, length(fuzzymatches))        # Work space for storing distances
-    rid2idx     = construct_rid2idx(pt, exactmatchcols)  # recordid => Set(row indices), where recordid = recordid(d, exactmatchcols) and d is a row of the Person table.
-    csvfile     = CSV.File(tablefullpath; delim='\t')
-    rowkeys     = Set(csvfile.names)  # Column names in data table
+function link!(newrows, linked_tids::Set{String}, tablefullpath::String, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch}, linkmapfile::String)
+    pt         = persontable.data["table"]
+    dist       = fill(0.0, length(fuzzymatches))        # Work space for storing distances
+    rid2idx    = construct_rid2idx(pt, exactmatchcols)  # recordid => Set(row indices), where recordid = recordid(d, exactmatchcols) and d is a row of the Person table.
+    csvfile    = CSV.File(tablefullpath; delim='\t')
+    rowkeys    = Set(csvfile.names)  # Column names in data table
+    n_newlinks = 0
+    i = 0
     for row in csvfile
         # Check whether row is already linked
         in(row.recordid, linked_tids) && continue
@@ -70,11 +68,21 @@ function link!(tablename::String, tablefullpath::String, exactmatchcols::Vector{
 
         # Create a new record in the linkmap
         bestcandidate[:i] == 0 && continue  # No candidate satisfied the matching criteria
-        tid    = row.recordid
-        rid    = pt[bestcandidate[:i], :recordid]
-        newrow = (tablename=tablename, tablerecordid=tid, personrecordid=rid)
-        push!(lmap, newrow)
+        i          += 1
+        n_newlinks += 1
+        newrows[i, :tablerecordid]  = row.recordid
+        newrows[i, :personrecordid] = pt[bestcandidate[:i], :recordid]
+        push!(linked_tids, row.recordid)
+
+        # If newrows is full, write to disk
+        rem(i, 1_000_000) > 0 && continue
+        newrows |> CSV.write(linkmapfile; delim='\t', append=true)
+        i = 0  # Reset the row number
     end
+    if i != 0
+        newrows[1:i, :] |> CSV.write(linkmapfile; delim='\t', append=true)
+    end
+    n_newlinks
 end
 
 
@@ -122,10 +130,13 @@ function select_best_candidate(row, candidates::Set{Int}, pt, fuzzymatches::Vect
 end
 
 
-function write_linkmap()
-    tbl      = data["table"]
-    fullpath = data["fullpath"]
-    tbl |> CSV.write(fullpath; delim='\t')
+function get_linked_tids(linkmapfile::String)
+    result  = Set{String}()
+    csvfile = CSV.File(linkmapfile; delim='\t')
+    for r in csvfile
+        push!(result, r[:tablerecordid])
+    end
+    result
 end
 
 

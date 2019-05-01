@@ -56,31 +56,30 @@ function run_linkage_stage(d::Dict)
     end
 
     @info "Initialising the Linkage Map"
-    linkmap.init!(joinpath(cfg.outputdir, "linkmap.tsv"), cfg.linkmap_schema)
+    linkmap.init!(cfg)
 
     @info "Starting linkage passes"
-    nlink0  = size(linkmap.data["table"], 1)
-    nlink1  = nlink0
-    nlink2  = nlink0
-    npass   = 0
-    npasses = size(cfg.linkagepasses, 1)
+    npass         = 0
+    npasses       = size(cfg.linkagepasses, 1)
+    prevtable     = ""
+    linkmapfile   = ""
+    tablefullpath = ""
+    linked_tids   = Set{String}()
+    newrows       = DataFrame(tablerecordid=fill("", 1_000_000), personrecordid=fill("", 1_000_000))
     for linkagepass in cfg.linkagepasses
-        npass += 1
-        @info "Linkage pass: $(npass) of $(npasses)"
-        tablename      = linkagepass.tablename
-        tablefullpath  = joinpath(cfg.inputdir, cfg.datatables[tablename])
+        npass    += 1
+        tablename = linkagepass.tablename
+        @info "Linkage pass: $(npass) of $(npasses) (Table is $(tablename))"
+        if tablename != prevtable
+            linkmapfile   = joinpath(cfg.outputdir, "linkmap_$(tablename).tsv")
+            linked_tids   = linkmap.get_linked_tids(linkmapfile)
+            tablefullpath = joinpath(cfg.inputdir, cfg.datatables[tablename])
+            prevtable     = tablename
+        end
         exactmatchcols = linkagepass.exactmatchcols
         fuzzymatches   = linkagepass.fuzzymatches
-        linkmap.link!(tablename, tablefullpath, exactmatchcols, fuzzymatches)
-        nlink2 = size(linkmap.data["table"], 1)
-        @info "$(nlink2 - nlink1) new records added to the link map."
-        nlink1 = nlink2
-    end
-
-    # Write linkmap to disk if there are new records
-    if nlink2 > nlink0
-        @info "$(nlink2 - nlink0) new records added to the link map. Writing to disk."
-        linkmap.write_linkmap()
+        n_newlinks     = linkmap.link!(newrows, linked_tids, tablefullpath, exactmatchcols, fuzzymatches, linkmapfile)
+        @info "$(n_newlinks) new records added to the link map for table $(tablename)."
     end
 end
 
