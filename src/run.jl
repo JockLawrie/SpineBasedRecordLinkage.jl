@@ -41,17 +41,9 @@ function run_linkage_stage(d::Dict)
     # Update the Person table with new records if they exist
     if !isempty(cfg.updatepersontable)
         @info "Updating the Person table"
-        n = size(persontable.data["table"], 1)
         for tablename in cfg.updatepersontable
             filename = joinpath(cfg.inputdir, cfg.datatables[tablename])
             persontable.updatetable!(filename)
-        end
-
-        # Write Person table to disk if there are new records
-        n_new = size(persontable.data["table"], 1)
-        if n_new > n
-            @info "$(n_new - n) new records added to the Person table. Writing to disk."
-            persontable.write_persontable()
         end
     end
 

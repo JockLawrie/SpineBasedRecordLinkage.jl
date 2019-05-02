@@ -31,27 +31,34 @@ function init!(fullpath::String, tblschema::TableSchema)
         data["npeople"]   = length(unique(tbl[:personid]))
         @info "The Person table has $(size(tbl, 1)) rows."
     elseif isdir(dirname(fullpath))
-        touch(fullpath)  # Create file
         coltypes         = [Union{Missing, tblschema.columns[colname].eltyp} for colname in colnames]
         data["fullpath"] = fullpath
         data["table"]    = DataFrame(coltypes, colnames, 0)
         data["colnames"] = colnames[4:end]
+        data["table"] |> CSV.write(fullpath; delim='\t')
         @info "The Person table has 0 rows."
     else
-        @error "File name is not valid."
+        @error "The file name for the Person table is not valid. Check that the containing directory exists."
     end
 end
 
 
 function updatetable!(filename::String)
     pt        = data["table"]
+    fullpath  = data["fullpath"]
     recordids = data["recordids"]
     colnames  = data["colnames"]
     csvfile   = CSV.File(filename; delim='\t')
     rowkeys   = Set(csvfile.names)  # Column names in filename
+    n_newrows = 0
     for row in csvfile
         d = Dict{Symbol, Any}(colname => in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in colnames)
         appendrow!(d, pt, recordids, colnames)
+        n_newrows += 1
+    end
+    if n_newrows > 0
+        pt |> CSV.write(fullpath; delim='\t', append=true)
+        @info "$(n_newrows) new records added to the Person table."
     end
 end
 
@@ -70,13 +77,6 @@ end
 recordid(v::Vector)   = base64encode(hash(v))
 
 recordid(d, colnames) = recordid([d[colname] for colname in colnames])
-
-
-function write_persontable()
-    tbl      = data["table"]
-    fullpath = data["fullpath"]
-    tbl |> CSV.write(fullpath; delim='\t')
-end
 
 
 end
