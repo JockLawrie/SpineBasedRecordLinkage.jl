@@ -134,7 +134,7 @@ function get_linked_tids(linkmapfile::String)
     result  = Set{String}()
     csvfile = CSV.File(linkmapfile; delim='\t')
     for r in csvfile
-        push!(result, r[:tablerecordid])
+        push!(result, getproperty(r, :tablerecordid))
     end
     result
 end

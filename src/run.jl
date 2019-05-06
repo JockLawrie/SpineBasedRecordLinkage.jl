@@ -29,7 +29,6 @@ function run_linkage_pipeline(d::Dict, run_preprocessing_stage::Function)
 end
 
 
-
 function run_linkage_stage(d::Dict)
     @info "Configuring linkage run"
     cfg = LinkageConfig(d["linkage"], d["persontable"], d["linkmap"])

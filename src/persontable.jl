@@ -53,8 +53,10 @@ function updatetable!(filename::String)
     n_newrows = 0
     for row in csvfile
         d = Dict{Symbol, Any}(colname => in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in colnames)
-        appendrow!(d, pt, recordids, colnames)
-        n_newrows += 1
+        row_appended = appendrow!(d, pt, recordids, colnames)
+        if row_appended
+            n_newrows += 1
+        end
     end
     if n_newrows > 0
         pt |> CSV.write(fullpath; delim='\t', append=true)
@@ -65,13 +67,14 @@ end
 
 function appendrow!(d, persontbl, recordids, colnames)
     rid = recordid(d, colnames)
-    in(rid, recordids) && return  # Person already exists in the Person table
+    in(rid, recordids) && return false # Person already exists in the Person table
     data["npeople"]    += 1
     d[:recordid]        = rid
     d[:personid]        = data["npeople"]
     d[:recordstartdate] = haskey(d, :recordstartdate) ? d[:recordstartdate] : missing
     push!(persontbl, d)
     push!(recordids, rid)
+    true
 end
 
 recordid(v::Vector)   = base64encode(hash(v))
