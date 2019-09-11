@@ -11,6 +11,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Schemata = "b4d66a32-c6c0-5461-b6fa-34bb9cecaf85"
 StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

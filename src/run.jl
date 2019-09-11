@@ -1,38 +1,21 @@
 module run
 
-export run_linkage_pipeline
+export run_linkage
 
 using DataFrames
+using Dates
 using Logging
 using Schemata
 
 using ..config
-using ..persontable
-using ..linkmap
+#using ..linkmap
 
 
-"Run the entire data linkage pipeline."
-function run_linkage_pipeline(d::Dict, run_preprocessing_stage::Function)
-    @info "Starting linkage pipeline"
-    for stage in d["stages"]
-        if stage == "preprocessing"
-            @info "Starting stage: preprocessing"
-            run_preprocessing_stage(d["preprocessing"])
-        elseif stage == "linkage"
-            @info "Starting stage: linkage"
-            run_linkage_stage(d)
-        else
-            error("Unknown stage: $(stage)")
-        end
-    end
-    @info "Finished linkage pipeline"
-end
+function run_linkage(d::Dict)
+    @info "$(now()) Configuring linkage run"
+    cfg = LinkageConfig(d)
 
-
-function run_linkage_stage(d::Dict)
-    @info "Configuring linkage run"
-    cfg = LinkageConfig(d["linkage"], d["persontable"], d["linkmap"])
-
+    #=
     @info "Initialising the Person table"
     persontable.init!(joinpath(cfg.outputdir, "person.tsv"), cfg.person_schema)
     @info "The fields that identify a person are:\n  $(persontable.data["colnames"])"
@@ -72,6 +55,8 @@ function run_linkage_stage(d::Dict)
         n_newlinks     = linkmap.link!(newrows, linked_tids, tablefullpath, exactmatchcols, fuzzymatches, linkmapfile)
         @info "$(n_newlinks) new records added to the link map for table $(tablename)."
     end
+    =#
+    @info "$(now()) Finished linkage"
 end
 
 

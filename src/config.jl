@@ -1,85 +1,112 @@
 module config
 
-export LinkageConfig, LinkagePass, FuzzyMatch
+export LinkageConfig
 
 using Schemata
+using YAML
 
 using ..distances
 
-
 ################################################################################
 
-"""
-tablecolumn and personcolumn denote columns in the data and person tables respectively that being compared in the fuzzy match.
-"""
-struct FuzzyMatch
-    tablecolumn::Symbol
-    personcolumn::Symbol
-    distancemetric::Symbol
-    threshold::Float64
+struct TableConfig
+    filename::String
+    schema::TableSchema
 end
 
+function TableConfig(name::String, spec::Dict, dirs::Dict)
+    datadir     = name == "spine" ? dirs["spine"] : dirs["tables"]
+    filename    = joinpath(datadir,          spec["filename"])
+    schemafile  = joinpath(dirs["schemata"], spec["schema"])
+    schema_dict = YAML.load_file(schemafile)
+    schema      = TableSchema(schema_dict)
+    TableConfig(filename, schema)
+end
 
 ################################################################################
 
-struct LinkagePass
+"""
+A FuzzyMatch specifies how a column in a data table can be compared to a column in the spine in an inexact manner.
+The comparison between two values, one from each column, is quantified as a distance between them.
+A user-specified upper threshold is used to determine whether the 2 values are sufficiently similar (distance sufficianetly small).
+If so, the 2 values are deemed to match.
+
+datacolumn: Data column name
+spinecolumn: Spine column name
+distancemetric: Name of distance metric
+threshold: Acceptable upper bound on distance
+"""
+struct FuzzyMatch
+    datacolumn::Symbol
+    spinecolumn::Symbol
+    distancemetric::Symbol
+    threshold::Float64
+
+    function FuzzyMatch(datacol, spinecol, distancemetric, threshold)
+        ((threshold <= 0.0) || (threshold >= 1.0)) && error("Distance threshold must be between 0 and 1 (excluding 0 and 1).")
+        if !haskey(distances.metrics, distancemetric)
+            allowed_metrics = sort!(collect(keys(distances.metrics)))
+            msg = "Unknown distance metric in fuzzy match criterion: $(distancemetric).\nMust be one of: $(allowed_metrics)"
+            error(msg)
+        end
+        new(datacol, spinecol, distancemetric, threshold)
+    end
+end
+
+function FuzzyMatch(d::Dict)
+    datacol, spinecol = Symbol.(d["columns"])
+    distancemetric    = Symbol(d["distancemetric"])
+    threshold         = d["threshold"]
+    FuzzyMatch(datacol, spinecol, distancemetric, threshold)
+end
+
+################################################################################
+
+"""
+tablename: Name of table to be linked to the spine.
+exactmatchcols: Dict of data_column_name => spine_column_name
+fuzzymatches::Vector{FuzzyMatch}
+"""
+struct LinkageIteration
     tablename::String
-    exactmatchcols::Vector{Symbol}
+    exactmatchcols::Dict{Symbol, Symbol}
     fuzzymatches::Vector{FuzzyMatch}
 end
 
-
-function LinkagePass(d::Dict)
+function LinkageIteration(d::Dict)
     tablename      = d["tablename"]
-    exactmatchcols = Symbol.(d["exactmatch_columns"])
-    fuzzymatches   = FuzzyMatch[]
-    if haskey(d, "fuzzymatches")
-        fm_specs = d["fuzzymatches"]
-        for x in fm_specs
-            tablecol, personcol = Symbol.(x["columns"])
-            distancemetric      = Symbol(x["distancemetric"])
-            if !haskey(distances.metrics, distancemetric)
-                allowed_metrics = sort!(collect(keys(distances.metrics)))
-                msg = "Unknown distance metric in fuzzy match criterion: $(distancemetric).\nMust be one of: $(allowed_metrics)"
-                error(msg)
-            end
-            threshold           = x["threshold"]
-            fm                  = FuzzyMatch(tablecol, personcol, distancemetric, threshold)
-            push!(fuzzymatches, fm)
-        end
-    end
-    LinkagePass(tablename, exactmatchcols, fuzzymatches)
+    exactmatchcols = Dict(Symbol(k) => Symbol(v) for (k, v) in d["exactmatch_columns"])
+    fuzzymatches   = haskey(d, "fuzzymatches") ? [FuzzyMatch(fmspec) for fmspec in d["fuzzymatches"]] : FuzzyMatch[]
+    LinkageIteration(tablename, exactmatchcols, fuzzymatches)
 end
 
 
 ################################################################################
 
 struct LinkageConfig
-    inputdir::String
-    outputdir::String
-    datatables::Dict{String, String}   # tablename => filename
-    person_schema::TableSchema
-    linkmap_schema::TableSchema
-    updatepersontable::Vector{String}  # Tables with which to update the Person table directly
-    linkagepasses::Vector{LinkagePass}
+    directories::Dict{String, String}
+    spine::TableConfig
+    tables::Dict{String, TableConfig}
+    iterations::Vector{LinkageIteration}
 end
 
+function LinkageConfig(d::Dict)
+    dirs       = process_directories(d["directories"])
+    spine      = TableConfig("spine", d["spine"], dirs)
+    tables     = Dict(tablename => TableConfig(tablename, tableconfig, dirs) for (tablename, tableconfig) in d["tables"])
+    iterations = [LinkageIteration(x) for x in d["iterations"]]
+    LinkageConfig(dirs, spine, tables, iterations)
+end
 
-function LinkageConfig(linkage::Dict, persontbl::Dict, lmap::Dict)
-    inputdir   = linkage["inputdir"]
-    outputdir  = linkage["outputdir"]
-    !isdir(inputdir)  && error("The input directory for the linkage stage does not exist.")
-    !isdir(outputdir) && error("The output directory for the linkage stage does not exist.")
-    datatables        = linkage["datatables"]
-    person_schema     = TableSchema(persontbl)
-    linkmap_schema    = TableSchema(lmap)
-    updatepersontable = haskey(linkage, "update_person_table") ? linkage["update_person_table"] : String[]
-    if updatepersontable isa String
-        updatepersontable = [updatepersontable]
+function process_directories(d::Dict)
+    result   = Dict{String, String}()
+    required = ["schemata", "spine", "linkmap", "tables", "output"]
+    for name in required
+        !haskey(d, name) && error("The directory for $(name) has not been specified.")
+        !isdir(d[name])  && error("The specified directory for $(name) does not exist.")
+        result[name] = d[name]
     end
-    linkagepasses = [LinkagePass(x) for x in linkage["linkage_passes"]]
-    sort!(linkagepasses, by=(lp) -> lp.tablename)
-    LinkageConfig(inputdir, outputdir, datatables, person_schema, linkmap_schema, updatepersontable, linkagepasses)
+    result
 end
 
 end

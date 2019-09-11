@@ -6,17 +6,40 @@ Record linkage in Julia, configurable in YAML.
 
 The central concepts are described here. See below for an example.
 
-1. Define a central `Person` table.
-   - This is a DataFrame with each row representing a person for a specified time period.
-   - The columns are: recordid, personid, recordstartdate, columns that identify a person.
-   - For example, the identifying columns typically include:
-       firstname, middlename, lastname, gender, birthdate, deathdate, streetaddress, postcode, locality, state.
-   - The format for each column is specified by a `Schema` as provided by the `Schemata` package.
-     This explicitly specifies data standardisation and implicitly enforces the requirements of the pre-processing stage.
-   - People can have multiple records, for example if they change their name or address.
-   - People with multiple records will have the same `personid`.
-   - Therefore the primary key of the table is [`personid`, `recordstartdate`]
-   - This package sets `recordid = base64encode(hash(vals...))"`, where vals are the values of all columns other than `personid` and `recordstartdate`.
+1. Record linkage is the process of determining whether 2 or more records from diferent data sets refer to the same _entity_.
+
+2. An entity is usually a person, but not necessarily. For example, an entity may be a business enterprise.
+
+3. An entity is identified by a set of fields. For example, a person can be identified by his/her name, birth date, address, etc.
+
+4. An entity's identifying information may change over time, though the entity remains the same. For example, a person may change his/her address.
+
+5. Records that specify the entities of interest are stored in a table in which:
+   - Each row represents an entity for a specified time period.
+   - The schema is defined using the `Schemata.jl` package.
+   - The required columns are: `recordid`, `entityid`, `recordstartdate`
+   - There are other columns that identify an entity, such as name, birth date, etc.
+   - Entities can have multiple records.
+   - Entities with multiple records will have the same `entityid`.
+   - Therefore the primary key of the table is [`entityid`, `recordstartdate`]
+   - This package sets `recordid = base64encode(hash(vals...))"`, where vals are the values of all columns other than `entityid` and `recordstartdate`.
+
+
+config specifies locations of linkmaps.
+if the linkmap files don't exist, the package will init them.
+linkmaps are never overwritten. This forces the user to remove the linkmaps manually if s/he wants to overwrite them.
+
+cd("C:\\Users\\jlaw1812\\repos\\RecordLinkage.jl")
+using Pkg
+Pkg.activate(".")
+
+To run the linkage from PowerShell:
+
+PS> cd C:\Users\jlaw1812\repos\RecordLinkage.jl
+PS> C:\Users\jlaw1812\AppData\Local\Julia-1.2.0\bin\julia scripts\run_linkage.jl C:\Users\jlaw1812\data\input\linkage_config.yaml
+
+When writing output, create a new directory using the run's timestamp. Do not overwrite any input! 
+
 
 2. A persistent linkage map is initialised.
    Each row defines a match between a record in the `Person` table and a record in another table of interest.
@@ -69,9 +92,8 @@ Once this is done you can run some code like the following:
 using RecordLinkage
 using YAML
 
-d = YAML.load_file("myconfig.yaml")
-# Define preprocessing function here
-run_linkage_pipeline(d, preprocessing_func)
+d = YAML.load_file("linkage_config.yaml")
+run_linkage(d)
 ```
 
 Here is the config file, _myconfig.yaml_. Note that the `Person` table and the linkage map are defined using the [Schemata](https://github.com/JockLawrie/Schemata.jl) package.
