@@ -90,7 +90,7 @@ struct LinkageConfig
     directories::Dict{String, String}
     spine::TableConfig
     tables::Dict{String, TableConfig}
-    iterations::Vector{LinkageIteration}
+    iterations::Vector{LinkageIteration}  # Grouped by tablename
 end
 
 function LinkageConfig(configfile::String)
@@ -100,7 +100,26 @@ function LinkageConfig(configfile::String)
     dirs        = process_directories(d["directories"], projectname)
     spine       = TableConfig("spine", d["spine"], dirs)
     tables      = Dict(tablename => TableConfig(tablename, tableconfig, dirs) for (tablename, tableconfig) in d["tables"])
-    iterations  = [LinkageIteration(x) for x in d["iterations"]]
+
+    # Iterations: retains original order but grouped by tablename for computational convenience
+    idx2iter       = Dict(i => LinkageIteration(x) for (i, x) in enumerate(d["iterations"]))
+    tablename2iter = Dict{String, Vector{LinkageIteration}}()
+    tableorder     = String[]
+    for i = 1:length(idx2iter)       # Construct tablename => [iteration1, ...]]
+        x = idx2iter[i]
+        tablename = x.tablename
+        if !haskey(tablename2iter, tablename)
+            tablename2iter[tablename] = LinkageIteration[]
+            push!(tableorder, tablename)
+        end
+        push!(tablename2iter[tablename], x)
+    end
+    iterations = LinkageIteration[]  # Combine into 1 vector
+    for tablename in tableorder
+        for x in tablename2iter[tablename]
+            push!(iterations, x)
+        end
+    end
     LinkageConfig(projectname, configfile, dirs, spine, tables, iterations)
 end
 

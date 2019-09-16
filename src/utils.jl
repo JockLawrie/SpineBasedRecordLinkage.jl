@@ -1,7 +1,7 @@
 module utils
 
 function get_package_version()
-    pkg_version  = "unknown"
+    pkg_version = "unknown"
     srcdir = @__DIR__
     r      = findfirst("RecordLinkage.jl", srcdir)  # i:j
     pkgdir = srcdir[1:r[end]]

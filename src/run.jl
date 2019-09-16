@@ -22,10 +22,16 @@ function run_linkage(configfile::String)
     mkdir(d)
     mkdir(joinpath(d, "input"))
     mkdir(joinpath(d, "output"))
-    cp(cfg.configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
+    cp(cfg.configfile, joinpath(d, "input", basename(configfile)))             # Copy config file to d/input
     pkg_version       = utils.get_package_version()
     software_versions = DataFrame(software=["Julia", "RecordLinkage.jl"], version=[VERSION, pkg_version])
     CSV.write(joinpath(d, "output", "SoftwareVersions.csv"), software_versions; delim=',')  # Write software_versions to d/output
+    iterations = DataFrame()
+    iterations[:IterationID]  = [i for i = 1:length(cfg.iterations)]
+    iterations[:TableName]    = [x.tablename      for x in cfg.iterations]
+    iterations[:ExactMatches] = [x.exactmatchcols for x in cfg.iterations]
+    iterations[:FuzzyMatches] = [x.fuzzymatches   for x in cfg.iterations]
+    CSV.write(joinpath(d, "output", "Iterations.csv"), iterations; delim=',')  # Write iterations to d/output
 
 
     #=
