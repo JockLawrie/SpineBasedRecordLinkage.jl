@@ -18,7 +18,9 @@ end
 function TableConfig(name::String, spec::Dict, dirs::Dict)
     datadir     = name == "spine" ? dirs["spine"] : dirs["tables"]
     filename    = joinpath(datadir,          spec["filename"])
+    !isfile(filename) && error("The data file for the $(name) table does not exist.")
     schemafile  = joinpath(dirs["schemata"], spec["schema"])
+    !isfile(schemafile) && error("The file containing the schema for the $(name) table does not exist.")
     schema_dict = YAML.load_file(schemafile)
     schema      = TableSchema(schema_dict)
     TableConfig(filename, schema)

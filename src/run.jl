@@ -17,7 +17,7 @@ function run_linkage(configfile::String)
     @info "$(now()) Configuring linkage run"
     cfg = LinkageConfig(configfile)
 
-    @info "Initialising linkage directory: $(cfg.directories["thisrun"])"
+    @info "$(now()) Initialising linkage directory: $(cfg.directories["thisrun"])"
     d = cfg.directories["thisrun"]
     mkdir(d)
     mkdir(joinpath(d, "input"))
@@ -27,11 +27,25 @@ function run_linkage(configfile::String)
     software_versions = DataFrame(software=["Julia", "RecordLinkage.jl"], version=[VERSION, pkg_version])
     CSV.write(joinpath(d, "output", "SoftwareVersions.csv"), software_versions; delim=',')  # Write software_versions to d/output
     iterations = DataFrame()
-    iterations[:IterationID]  = [i for i = 1:length(cfg.iterations)]
-    iterations[:TableName]    = [x.tablename      for x in cfg.iterations]
-    iterations[:ExactMatches] = [x.exactmatchcols for x in cfg.iterations]
-    iterations[:FuzzyMatches] = [x.fuzzymatches   for x in cfg.iterations]
+    iterations[!, :IterationID]  = [i for i = 1:length(cfg.iterations)]
+    iterations[!, :TableName]    = [x.tablename      for x in cfg.iterations]
+    iterations[!, :ExactMatches] = [x.exactmatchcols for x in cfg.iterations]
+    iterations[!, :FuzzyMatches] = [x.fuzzymatches   for x in cfg.iterations]
     CSV.write(joinpath(d, "output", "Iterations.csv"), iterations; delim=',')  # Write iterations to d/output
+
+    @info "$(now()) Importing spine"
+    spine0 = DataFrame(CSV.File(cfg.spine.filename; limit=10))
+    spine, issues = enforce_schema(spine0, cfg.spine.schema, false)
+    if size(issues, 1) != 0
+        CSV.write(joinpath(d, "output", "SpineIssues.tsv"), DataFrame(issues); delim='\t')
+        #error("The spine does not match its schema. See $(joinpath(d, "output", "SpineIssues.tsv")) for details.")
+    end
+println("")
+    for x in issues
+        println(x)
+    end
+println("")
+println(spine0[1:2, :])
 
 
     #=
