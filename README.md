@@ -40,6 +40,12 @@ PS> C:\Users\jlaw1812\AppData\Local\Julia-1.2.0\bin\julia scripts\run_linkage.jl
 
 When writing output, create a new directory using the run's timestamp. Do not overwrite any input! 
 
+- Tips for users:
+  - When specifying the project name in the config, make it recognisable, such as rq452.
+  - For each data table, if last_updated column exists, include it in the primary key.
+  - Governance (i.e., versioning) of the spine and the input data tables is the responsibility of the user.
+    - It is out of the scope of the linkage engine (RecordLinkage.jl).
+    - Users must ensure that the spine and data used in a linkage run is preserved without any changes. Otherwise the linkage run may not be reproducible.
 
 2. A persistent linkage map is initialised.
    Each row defines a match between a record in the `Person` table and a record in another table of interest.

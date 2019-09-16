@@ -2,6 +2,7 @@ module config
 
 export LinkageConfig
 
+using Dates
 using Schemata
 using YAML
 
@@ -84,27 +85,39 @@ end
 ################################################################################
 
 struct LinkageConfig
+    projectname::String
+    configfile::String
     directories::Dict{String, String}
     spine::TableConfig
     tables::Dict{String, TableConfig}
     iterations::Vector{LinkageIteration}
 end
 
-function LinkageConfig(d::Dict)
-    dirs       = process_directories(d["directories"])
-    spine      = TableConfig("spine", d["spine"], dirs)
-    tables     = Dict(tablename => TableConfig(tablename, tableconfig, dirs) for (tablename, tableconfig) in d["tables"])
-    iterations = [LinkageIteration(x) for x in d["iterations"]]
-    LinkageConfig(dirs, spine, tables, iterations)
+function LinkageConfig(configfile::String)
+    !isfile(configfile) && error("The config file $(configfile) does not exist.")
+    d           = YAML.load_file(configfile)
+    projectname = d["projectname"]
+    dirs        = process_directories(d["directories"], projectname)
+    spine       = TableConfig("spine", d["spine"], dirs)
+    tables      = Dict(tablename => TableConfig(tablename, tableconfig, dirs) for (tablename, tableconfig) in d["tables"])
+    iterations  = [LinkageIteration(x) for x in d["iterations"]]
+    LinkageConfig(projectname, configfile, dirs, spine, tables, iterations)
 end
 
-function process_directories(d::Dict)
+function process_directories(d::Dict, projectname::String)
     result   = Dict{String, String}()
-    required = ["schemata", "spine", "linkmap", "tables", "output"]
+    required = ["lastrun", "thisrun", "spine", "schemata", "tables"]
     for name in required
         !haskey(d, name) && error("The directory for $(name) has not been specified.")
-        !isdir(d[name])  && error("The specified directory for $(name) does not exist.")
-        result[name] = d[name]
+        if name == "lastrun" && d[name] == ""
+            result["lastrun"] = d[name]
+        elseif name == "thisrun"
+            dttm   = replace(replace("$(now())"[1:(end - 4)], ":" => "."), "-" => ".")  # yyyy.mm.ddTHH.MM.SS
+            result["thisrun"] = joinpath(d["thisrun"], "linkage-$(projectname)-$(dttm)")
+        else
+            !isdir(d[name]) && error("The specified directory for $(name) does not exist.")
+            result[name] = d[name]
+        end
     end
     result
 end

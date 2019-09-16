@@ -2,18 +2,31 @@ module run
 
 export run_linkage
 
+using CSV
 using DataFrames
 using Dates
 using Logging
 using Schemata
 
+using ..utils
 using ..config
 #using ..linkmap
 
 
-function run_linkage(d::Dict)
+function run_linkage(configfile::String)
     @info "$(now()) Configuring linkage run"
-    cfg = LinkageConfig(d)
+    cfg = LinkageConfig(configfile)
+
+    @info "Initialising linkage directory: $(cfg.directories["thisrun"])"
+    d = cfg.directories["thisrun"]
+    mkdir(d)
+    mkdir(joinpath(d, "input"))
+    mkdir(joinpath(d, "output"))
+    cp(cfg.configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
+    pkg_version       = utils.get_package_version()
+    software_versions = DataFrame(software=["Julia", "RecordLinkage.jl"], version=[VERSION, pkg_version])
+    CSV.write(joinpath(d, "output", "SoftwareVersions.csv"), software_versions; delim=',')  # Write software_versions to d/output
+
 
     #=
     @info "Initialising the Person table"
