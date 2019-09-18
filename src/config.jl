@@ -1,6 +1,6 @@
 module config
 
-export LinkageConfig
+export LinkageConfig, FuzzyMatch
 
 using Dates
 using Schemata
@@ -92,7 +92,7 @@ struct LinkageConfig
     directories::Dict{String, String}
     spine::TableConfig
     tables::Dict{String, TableConfig}
-    iterations::Vector{LinkageIteration}  # Grouped by tablename
+    iterations::Vector{Vector{LinkageIteration}}  # iterations[i] = [iterations for a table i]
 end
 
 function LinkageConfig(configfile::String)
@@ -104,23 +104,15 @@ function LinkageConfig(configfile::String)
     tables      = Dict(tablename => TableConfig(tablename, tableconfig, dirs) for (tablename, tableconfig) in d["tables"])
 
     # Iterations: retains original order but grouped by tablename for computational convenience
-    idx2iter       = Dict(i => LinkageIteration(x) for (i, x) in enumerate(d["iterations"]))
-    tablename2iter = Dict{String, Vector{LinkageIteration}}()
-    tableorder     = String[]
-    for i = 1:length(idx2iter)       # Construct tablename => [iteration1, ...]]
-        x = idx2iter[i]
-        tablename = x.tablename
-        if !haskey(tablename2iter, tablename)
-            tablename2iter[tablename] = LinkageIteration[]
-            push!(tableorder, tablename)
+    iterations = Vector{LinkageIteration}[]
+    tablename2idx = Dict{String, Int}()
+    for x in d["iterations"]
+        tablename = x["tablename"]
+        if !haskey(tablename2idx, tablename)
+            push!(iterations, LinkageIteration[])
+            tablename2idx[tablename] = size(iterations, 1)
         end
-        push!(tablename2iter[tablename], x)
-    end
-    iterations = LinkageIteration[]  # Combine into 1 vector
-    for tablename in tableorder
-        for x in tablename2iter[tablename]
-            push!(iterations, x)
-        end
+        push!(iterations[tablename2idx[tablename]], LinkageIteration(x))
     end
     LinkageConfig(projectname, configfile, dirs, spine, tables, iterations)
 end

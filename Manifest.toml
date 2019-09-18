@@ -3,12 +3,6 @@
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
-[[BinaryProvider]]
-deps = ["Libdl", "Logging", "SHA"]
-git-tree-sha1 = "c7361ce8a2129f20b0e05a89f7070820cfed6648"
-uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
-version = "0.5.6"
-
 [[CSV]]
 deps = ["CategoricalArrays", "DataFrames", "Dates", "Mmap", "Parsers", "PooledArrays", "Profile", "Tables", "Unicode", "WeakRefStrings"]
 git-tree-sha1 = "de1b0b47e8860ebda59594fa424709ed3e40fcd3"
@@ -73,12 +67,6 @@ version = "0.8.2"
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
-[[EzXML]]
-deps = ["BinaryProvider", "Libdl", "Printf"]
-git-tree-sha1 = "aed48d722e528bc634bd36a7d0e090fa2952a3c0"
-uuid = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
-version = "0.9.4"
-
 [[Future]]
 deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
@@ -129,11 +117,6 @@ version = "0.4.2"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
-[[Mocking]]
-git-tree-sha1 = "bd2623f8b728af988d2afec53d611acb621f3bc4"
-uuid = "78c3b35d-d492-501b-9361-3d52fe80e533"
-version = "0.7.0"
-
 [[OrderedCollections]]
 deps = ["Random", "Serialization", "Test"]
 git-tree-sha1 = "c4c13474d23c60d20a67b217f1d7f22a40edf8f1"
@@ -181,10 +164,10 @@ version = "0.2.0"
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [[Schemata]]
-deps = ["DataFrames", "Dates", "Test", "TimeZones", "YAML"]
-git-tree-sha1 = "f0636908b6d92027f440668542f775605a121498"
+deps = ["CategoricalArrays", "DataFrames", "Dates", "Parsers", "YAML"]
+path = "C:\\\\Users\\\\jlaw1812\\\\repos\\\\Schemata.jl"
 uuid = "b4d66a32-c6c0-5461-b6fa-34bb9cecaf85"
-version = "1.0.2"
+version = "1.1.0"
 
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -231,12 +214,6 @@ version = "0.2.11"
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[[TimeZones]]
-deps = ["Dates", "EzXML", "Mocking", "Printf", "Serialization", "Unicode"]
-git-tree-sha1 = "2769a7ceffe237e651ed960a331a19258c8cf208"
-uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
-version = "0.10.0"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]

@@ -1,5 +1,9 @@
 module utils
 
+using DataFrames
+
+using ..config
+
 function get_package_version()
     pkg_version = "unknown"
     srcdir = @__DIR__
@@ -18,6 +22,24 @@ function get_package_version()
     end
 end
 
+function construct_software_versions_table()
+    pkg_version = get_package_version()
+    DataFrame(software=["Julia", "RecordLinkage.jl"], version=[VERSION, pkg_version])
+end
 
+function construct_iterations_table(cfg::LinkageConfig)
+    colnames = (:IterationID, :TableName, :ExactMatches, :FuzzyMatches)
+    coltypes = Tuple{Int, String, Dict{Symbol, Symbol}, Vector{FuzzyMatch}}
+    result   = NamedTuple{colnames, coltypes}[]
+    i        = 0
+    for v in cfg.iterations
+        for x in v
+            i += 1
+            r = (IterationID=i, TableName=x.tablename, ExactMatches=x.exactmatchcols, FuzzyMatches=x.fuzzymatches)
+            push!(result, r)
+        end
+    end
+    DataFrame(result)
+end
 
 end
