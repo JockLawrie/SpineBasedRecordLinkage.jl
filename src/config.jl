@@ -123,7 +123,7 @@ function process_directories(d::Dict, projectname::String)
     for name in required
         !haskey(d, name) && error("The directory for $(name) has not been specified.")
         if name == "lastrun" && d[name] == ""
-            result["lastrun"] = d[name]
+            result["lastrun"] = ""
         elseif name == "thisrun"
             dttm   = replace(replace("$(now())"[1:(end - 4)], ":" => "."), "-" => ".")  # yyyy.mm.ddTHH.MM.SS
             result["thisrun"] = joinpath(d["thisrun"], "linkage-$(projectname)-$(dttm)")

@@ -11,23 +11,39 @@ using ..distances
 
 
 function init_linkmaps(cfg::LinkageConfig)
-    lmschema    = cfg.linkmap_schema
-    tables_done = Set{String}()
-    for linkagepass in cfg.linkagepasses
-        tablename = linkagepass.tablename
-        in(tablename, tables_done) && continue
-        push!(tables_done, tablename)
-        linkmapfile = joinpath(cfg.outputdir, "linkmap_$(tablename).tsv")
-        if isfile(linkmapfile)
-            # TODO: Check that the linkmap matches the schema
+    outdir = joinpath(cfg.directories["thisrun"], "output")
+    for v in cfg.iterations
+        # Make an output directory for the table
+        tablename = v[1].tablename
+        tabledir  = joinpath(outdir, tablename)
+        mkdir(tabledir)
+
+        # Place the new/existing linkmap in the output directory
+        if cfg.directories["lastrun"] == ""  # No previous run, create a new linkmap
+            filename = joinpath(tabledir, "linkmap-$(tablename).tsv")
+            linkmap  = construct_new_linkmap(cfg)
+            CSV.write(filename, linkmap; delim='\t')
         else
-            colnames = lmschema.col_order
-            coltypes = [Union{Missing, lmschema.columns[colname].eltyp} for colname in colnames]
-            lmap     = DataFrame(coltypes, colnames, 0)
-            lmap |> CSV.write(linkmapfile; delim='\t')
+            sourcefile = joinpath(cfg.directories["lastrun"], "output", tablename, "linkmap-$(tablename).tsv")
+            destfile   = joinpath(tabledir, "linkmap-$(tablename).tsv")
+            if !isfile(sourcefile)
+                @error "The link map for the $(tablename) table for the previous run cannot be found"
+                linkmap = construct_new_linkmap(cfg)
+                CSV.write(filename, linkmap; delim='\t')
+            else
+                cp(sourcefile, destfile)
+            end
         end
     end
-end
+
+    function construct_new_linkmap(cfg::LinkageConfig)
+        colnames = [:spineid, :recordid, :iterationid]
+        spineid_schema  = get_column_schema(cfg.spine.schema, :spineid)
+error("TODO: I am here")
+        recordid_schema = get_column_schema(cfg.spine.schema, :spineid)
+        coltypes = [spineid_schema.datatype, , Int]
+        DataFrame(coltypes, colnames, 0)
+    end
 
     #=
     @info "Starting linkage passes"
