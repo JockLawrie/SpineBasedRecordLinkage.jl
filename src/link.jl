@@ -11,11 +11,11 @@ using ..distances
 
 
 function linktables(cfg::LinkageConfig, spine::DataFrame)
-    outdir = joinpath(cfg.directory, "output")
     for table_iterations in cfg.iterations
         # Make an output directory for the table
         tablename = table_iterations[1].tablename
-        tabledir  = joinpath(outdir, tablename)
+        @info "$(now()) Starting linkage for table $(tablename)"
+        tabledir  = joinpath(joinpath(cfg.directory, "output"), tablename)
         mkdir(tabledir)
 
         # Create an empty linkmap and store it in the output directory
@@ -23,18 +23,64 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
         linkmap_file = joinpath(tabledir, "linkmap-$(tablename).tsv")
         CSV.write(linkmap_file, linkmap; delim='\t')
 
-        # Run the iterations over the data
-        tablefile   = cfg.tables[tablename].fullpath
-        tableschema = cfg.tables[tablename].schema
-        issues      = linktable(spine, linkmap_file, tablefile, tableschema, table_iterations)
+        # Create an empty output file for the data and store it in the output directory
+        tableschema   = cfg.tables[tablename].schema
+        data          = init_data(tableschema, 0)  # Columns are [:recordid, primarykey_columns...]
+        table_outfile = joinpath(tabledir, "$(tablename).tsv")
+        CSV.write(table_outfile, data; delim='\t')
 
-        # Store issues (comparing the table's schema to its data) if there are any
-        size(issues, 1) > 0 && CSV.write(joinpath(tabledir, "data_issues.tsv"), DataFrame(issues); delim='\t')
+        # Run the iterations over the data
+        table_infile = cfg.tables[tablename].fullpath
+        issues       = linktable(spine, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
+
+        # Store any issues found when comparing the table's schema to its data
+        isempty(issues) == 0 && continue
+        issuesfile = joinpath(tabledir, "data_issues.tsv")
+        @info "$(now()) Table didn't fully comply with the schema. See $(issuesfile) for details."
+        CSV.write(issuesfile, DataFrame(issues); delim='\t')
     end
 end
 
 
-function linktable(spine::DataFrame, linkmap_file::String, tablefile::String, tableschema::TableSchema, iterations::Vector{LinkageIteration})
+function linktable(spine::DataFrame, linkmap_file::String, table_infile::String, table_outfile::String,
+                   tableschema::TableSchema, iterations::Vector{LinkageIteration})
+    linkmap   = init_linkmap(cfg, 1_000_000)       # Process the data in batches of 1_000_000 rows
+    data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
+    csvfile   = CSV.File(tablefile; delim='\t')
+    i_linkmap = 0
+    i_data    = 0
+    for row in csvfile
+        # Parse primarykey columns
+        # Append recordid = Int(hash(table[primarykey]))
+        # Store row[recordid, primarykey]
+
+        # Loop through each LinkageIteration
+        for iteration in iterations
+            # Parse columns relevant to iteration
+
+            # 
+            candidates
+            isempty(candidates) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
+            bestcandidate = select_best_candidate(row, candidates, pt, fuzzymatches, dist)
+            bestcandidate == 0  && continue
+
+            # Create a record in the linkmap
+            i_linkmap += 1
+            linkmap[i_linkmap, :spineid]     = bestcandidate
+            linkmap[i_linkmap, :recordid]    = recordid
+            linkmap[i_linkmap, :iterationid] = iteration.id
+            break  # Row has been linked, no need to link on other criteria
+        end
+
+        # If linkmap is full, write to disk
+        rem(i_linkmap, 1_000_000) > 0 && continue
+        CSV.write(linkmap_file,linkmap; delim='\t', append=true)
+        i_linkmap = 0  # Reset the row number
+    end
+    if i_linkmap != 0
+        CSV.write(linkmap_file, linkmap[1:i_linkmap, :]; delim='\t', append=true)
+    end
+    issues
 end
 
 
@@ -49,37 +95,19 @@ function init_linkmap(cfg::LinkageConfig, n::Int)
 end
 
 
+function init_data(tableschema::TableSchema, n::Int)
+    colnames = vcat(:recordid, tableschema.primarykey)
+    coltypes = [Int]
+    for colname in tableschema.primarykey
+        colschema = tableschema.columns[colname]
+        push!(coltypes, colschema.datatype)
+    end
+    DataFrame(coltypes, colnames, n)
+end
+
 
 ################################################################################
 # OLD
-
-
-    #=
-    @info "Starting linkage passes"
-    npass         = 0
-    npasses       = size(cfg.linkagepasses, 1)
-    prevtable     = ""
-    linkmapfile   = ""
-    tablefullpath = ""
-    linked_tids   = Set{String}()
-    newrows       = DataFrame(tablerecordid=fill("", 1_000_000), personrecordid=fill("", 1_000_000))
-    for linkagepass in cfg.linkagepasses
-        npass    += 1
-        tablename = linkagepass.tablename
-        @info "Linkage pass: $(npass) of $(npasses) (Table is $(tablename))"
-        if tablename != prevtable
-            linkmapfile   = joinpath(cfg.outputdir, "linkmap_$(tablename).tsv")
-            linked_tids   = linkmap.get_linked_tids(linkmapfile)
-            tablefullpath = joinpath(cfg.inputdir, cfg.datatables[tablename])
-            prevtable     = tablename
-        end
-        exactmatchcols = linkagepass.exactmatchcols
-        fuzzymatches   = linkagepass.fuzzymatches
-        n_newlinks     = linkmap.link!(newrows, linked_tids, tablefullpath, exactmatchcols, fuzzymatches, linkmapfile)
-        @info "$(n_newlinks) new records added to the link map for table $(tablename)."
-    end
-    =#
-
 
 """
 Modified: newrows, linked_tids
