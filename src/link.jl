@@ -46,22 +46,57 @@ function linktable(spine::DataFrame, linkmap_file::String, table_infile::String,
                    tableschema::TableSchema, iterations::Vector{LinkageIteration})
     linkmap   = init_linkmap(cfg, 1_000_000)       # Process the data in batches of 1_000_000 rows
     data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
-    csvfile   = CSV.File(tablefile; delim='\t')
     i_linkmap = 0
     i_data    = 0
-    for row in csvfile
+    nlinks    = 0
+    row       = nothing  # To be Vector{String}
+    sep       = table_infile[(end - 2):end] == "csv" ? ',' : '\t'
+    colname2idx   = nothing
+    colnames_done = false
+
+
+#colnames  # relevant colnames
+#row = missings(String, length(colnames))  # extract only the relevant columns
+
+    f = open(table_infile)
+    for line in eachline(f)
+        # Parse column names. Init row. Init parsedrow.
+        if colnames_done!
+            colname2idx   = Dict(Symbol(colname) => j for (j, colname) in enumerate(strip.(String.(split(line, sep)))))
+            row           = missings(String, length(colname2idx))  # Place holder for cell values
+            colnames_done = true
+            continue
+        end
+
+        # Extract row from line
+        i_data += 1
+        extract_row!(row, line)
+
         # Parse primarykey columns
-        # Append recordid = Int(hash(table[primarykey]))
-        # Store row[recordid, primarykey]
+        for colname in primarykey_colnames
+            j   = colname2idx[colname]
+            val = parse(tableschema.columns[colname].parser, row[j])
+            parsedrow[j] = val
+            data[i_data, colname] = val
+
+            # Append recordid = Int(hash(table[primarykey]))
+            # Store row[recordid, primarykey]
+        end
+
+        # If data is full, write to disk
+        if i_data == 1_000_000
+            CSV.write(table_outfile, data; delim='\t', append=true)
+            i_data = 0  # Reset the row number
+        end
 
         # Loop through each LinkageIteration
         for iteration in iterations
             # Parse columns relevant to iteration
 
-            # 
-            candidates
+            # Identify the best matching spine record (if it exists)
+            candidates  # Spine records that satisfy iteration.exactmatchcols
             isempty(candidates) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
-            bestcandidate = select_best_candidate(row, candidates, pt, fuzzymatches, dist)
+            bestcandidate = select_best_candidate(row, spine, candidates, iteration.fuzzymatches)
             bestcandidate == 0  && continue
 
             # Create a record in the linkmap
@@ -74,12 +109,11 @@ function linktable(spine::DataFrame, linkmap_file::String, table_infile::String,
 
         # If linkmap is full, write to disk
         rem(i_linkmap, 1_000_000) > 0 && continue
-        CSV.write(linkmap_file,linkmap; delim='\t', append=true)
+        nlinks    = write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
         i_linkmap = 0  # Reset the row number
     end
-    if i_linkmap != 0
-        CSV.write(linkmap_file, linkmap[1:i_linkmap, :]; delim='\t', append=true)
-    end
+    i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks)
+    close(f)
     issues
 end
 
@@ -94,7 +128,6 @@ function init_linkmap(cfg::LinkageConfig, n::Int)
     DataFrame(coltypes, colnames, n)
 end
 
-
 function init_data(tableschema::TableSchema, n::Int)
     colnames = vcat(:recordid, tableschema.primarykey)
     coltypes = [Int]
@@ -105,6 +138,12 @@ function init_data(tableschema::TableSchema, n::Int)
     DataFrame(coltypes, colnames, n)
 end
 
+function write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
+    nlinks += size(linkmap, 1)
+    CSV.write(linkmap_file, linkmap; delim='\t', append=true)
+    @info "$(now()) $(nlinks) created"
+    nlinks
+end
 
 ################################################################################
 # OLD
