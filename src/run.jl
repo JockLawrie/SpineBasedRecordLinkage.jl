@@ -17,8 +17,8 @@ function run_linkage(configfile::String)
     @info "$(now()) Configuring linkage run"
     cfg = LinkageConfig(configfile)
 
-    @info "$(now()) Initialising linkage directory: $(cfg.directories["thisrun"])"
-    d = cfg.directories["thisrun"]
+    @info "$(now()) Initialising linkage directory: $(cfg.directory)"
+    d = cfg.directory
     mkdir(d)
     mkdir(joinpath(d, "input"))
     mkdir(joinpath(d, "output"))
@@ -29,18 +29,15 @@ function run_linkage(configfile::String)
     CSV.write(joinpath(d, "output", "Iterations.csv"), iterations; delim=',')  # Write iterations to d/output
 
     @info "$(now()) Importing spine"
-    spine0 = DataFrame(CSV.File(cfg.spine.filename; limit=10))
+    spine0        = DataFrame(CSV.File(cfg.spine.filename; limit=100))  # TODO: remove limit after testing
     spine, issues = enforce_schema(spine0, cfg.spine.schema, false)
     if size(issues, 1) != 0
         CSV.write(joinpath(d, "output", "SpineIssues.tsv"), DataFrame(issues); delim='\t')
         @error "The spine does not match its schema. See $(joinpath(d, "output", "SpineIssues.tsv")) for details."
     end
 
-    @info "$(now()) Initialising the linkage maps"
-    #link.init_linkmaps(cfg)
-
-    @info "$(now()) Starting the linkage iterations"
-    #link.run_iterations()
+    # Do the linkage
+    link.linktables(cfg, spine)
 
     @info "$(now()) Finished linkage"
 end

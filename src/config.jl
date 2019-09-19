@@ -10,20 +10,24 @@ using ..distances
 
 ################################################################################
 
+"""
+fullpath: File path for the data.
+schema:   Schema for the data.
+"""
 struct TableConfig
-    filename::String
+    fullpath::String
     schema::TableSchema
 end
 
 function TableConfig(name::String, spec::Dict, dirs::Dict)
     datadir     = name == "spine" ? dirs["spine"] : dirs["tables"]
-    filename    = joinpath(datadir,          spec["filename"])
-    !isfile(filename) && error("The data file for the $(name) table does not exist.")
+    fullpath    = joinpath(datadir,          spec["fullpath"])
+    !isfile(fullpath) && error("The data file for the $(name) table does not exist.")
     schemafile  = joinpath(dirs["schemata"], spec["schema"])
     !isfile(schemafile) && error("The file containing the schema for the $(name) table does not exist.")
     schema_dict = YAML.load_file(schemafile)
     schema      = TableSchema(schema_dict)
-    TableConfig(filename, schema)
+    TableConfig(fullpath, schema)
 end
 
 ################################################################################
@@ -71,25 +75,30 @@ exactmatchcols: Dict of data_column_name => spine_column_name
 fuzzymatches::Vector{FuzzyMatch}
 """
 struct LinkageIteration
+    id::Int
     tablename::String
     exactmatchcols::Dict{Symbol, Symbol}
     fuzzymatches::Vector{FuzzyMatch}
 end
 
-function LinkageIteration(d::Dict)
+function LinkageIteration(id::Int, d::Dict)
     tablename      = d["tablename"]
     exactmatchcols = Dict(Symbol(k) => Symbol(v) for (k, v) in d["exactmatch_columns"])
     fuzzymatches   = haskey(d, "fuzzymatches") ? [FuzzyMatch(fmspec) for fmspec in d["fuzzymatches"]] : FuzzyMatch[]
-    LinkageIteration(tablename, exactmatchcols, fuzzymatches)
+    LinkageIteration(id, tablename, exactmatchcols, fuzzymatches)
 end
 
 
 ################################################################################
 
+"""
+directory:  A directory created specifically for the linkage run. It contains all input and output.
+spine:      TableConfig for the spine.
+tables:     Dict of (tablename, TableConfig) pairs, with 1 pair for each data table.
+iterations: Vector{Vector{LinkageIteration}}, where iterations[i] = [iterations for a table i].
+"""
 struct LinkageConfig
-    projectname::String
-    configfile::String
-    directories::Dict{String, String}
+    directory::String
     spine::TableConfig
     tables::Dict{String, TableConfig}
     iterations::Vector{Vector{LinkageIteration}}  # iterations[i] = [iterations for a table i]
@@ -97,14 +106,14 @@ end
 
 function LinkageConfig(configfile::String)
     !isfile(configfile) && error("The config file $(configfile) does not exist.")
-    d           = YAML.load_file(configfile)
-    projectname = d["projectname"]
-    dirs        = process_directories(d["directories"], projectname)
-    spine       = TableConfig("spine", d["spine"], dirs)
-    tables      = Dict(tablename => TableConfig(tablename, tableconfig, dirs) for (tablename, tableconfig) in d["tables"])
+    d      = YAML.load_file(configfile)
+    dirs   = process_directories(d["directories"], d["projectname"])
+    spine  = TableConfig("spine", d["spine"], dirs)
+    tables = Dict(tablename => TableConfig(tablename, tableconfig, dirs) for (tablename, tableconfig) in d["tables"])
 
     # Iterations: retains original order but grouped by tablename for computational convenience
-    iterations = Vector{LinkageIteration}[]
+    iterations    = Vector{LinkageIteration}[]
+    iterationid   = 0
     tablename2idx = Dict{String, Int}()
     for x in d["iterations"]
         tablename = x["tablename"]
@@ -112,26 +121,22 @@ function LinkageConfig(configfile::String)
             push!(iterations, LinkageIteration[])
             tablename2idx[tablename] = size(iterations, 1)
         end
-        push!(iterations[tablename2idx[tablename]], LinkageIteration(x))
+        iterationid += 1
+        push!(iterations[tablename2idx[tablename]], LinkageIteration(iterationid, x))
     end
-    LinkageConfig(projectname, configfile, dirs, spine, tables, iterations)
+    LinkageConfig(dirs["output"], spine, tables, iterations)
 end
 
 function process_directories(d::Dict, projectname::String)
     result   = Dict{String, String}()
-    required = ["lastrun", "thisrun", "spine", "schemata", "tables"]
+    required = ["schemata", "spine", "tables", "output"]
     for name in required
         !haskey(d, name) && error("The directory for $(name) has not been specified.")
-        if name == "lastrun" && d[name] == ""
-            result["lastrun"] = ""
-        elseif name == "thisrun"
-            dttm   = replace(replace("$(now())"[1:(end - 4)], ":" => "."), "-" => ".")  # yyyy.mm.ddTHH.MM.SS
-            result["thisrun"] = joinpath(d["thisrun"], "linkage-$(projectname)-$(dttm)")
-        else
-            !isdir(d[name]) && error("The specified directory for $(name) does not exist.")
-            result[name] = d[name]
-        end
+        !isdir(d[name])  && error("The specified directory for $(name) does not exist.")
+        result[name] = d[name]
     end
+    dttm = replace(replace("$(now())"[1:(end - 4)], ":" => "."), "-" => ".")  # yyyy.mm.ddTHH.MM.SS
+    result["output"] = joinpath(d["output"], "linkage-$(projectname)-$(dttm)")
     result
 end
 

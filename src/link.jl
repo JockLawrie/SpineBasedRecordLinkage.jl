@@ -10,40 +10,49 @@ using ..config
 using ..distances
 
 
-function init_linkmaps(cfg::LinkageConfig)
-    outdir = joinpath(cfg.directories["thisrun"], "output")
-    for v in cfg.iterations
+function linktables(cfg::LinkageConfig, spine::DataFrame)
+    outdir = joinpath(cfg.directory, "output")
+    for table_iterations in cfg.iterations
         # Make an output directory for the table
-        tablename = v[1].tablename
+        tablename = table_iterations[1].tablename
         tabledir  = joinpath(outdir, tablename)
         mkdir(tabledir)
 
-        # Place the new/existing linkmap in the output directory
-        if cfg.directories["lastrun"] == ""  # No previous run, create a new linkmap
-            filename = joinpath(tabledir, "linkmap-$(tablename).tsv")
-            linkmap  = construct_new_linkmap(cfg)
-            CSV.write(filename, linkmap; delim='\t')
-        else
-            sourcefile = joinpath(cfg.directories["lastrun"], "output", tablename, "linkmap-$(tablename).tsv")
-            destfile   = joinpath(tabledir, "linkmap-$(tablename).tsv")
-            if !isfile(sourcefile)
-                @error "The link map for the $(tablename) table for the previous run cannot be found"
-                linkmap = construct_new_linkmap(cfg)
-                CSV.write(filename, linkmap; delim='\t')
-            else
-                cp(sourcefile, destfile)
-            end
-        end
-    end
+        # Create an empty linkmap and store it in the output directory
+        linkmap      = init_linkmap(cfg,  0)
+        linkmap_file = joinpath(tabledir, "linkmap-$(tablename).tsv")
+        CSV.write(linkmap_file, linkmap; delim='\t')
 
-    function construct_new_linkmap(cfg::LinkageConfig)
-        colnames = [:spineid, :recordid, :iterationid]
-        spineid_schema  = get_column_schema(cfg.spine.schema, :spineid)
-error("TODO: I am here")
-        recordid_schema = get_column_schema(cfg.spine.schema, :spineid)
-        coltypes = [spineid_schema.datatype, , Int]
-        DataFrame(coltypes, colnames, 0)
+        # Run the iterations over the data
+        tablefile   = cfg.tables[tablename].fullpath
+        tableschema = cfg.tables[tablename].schema
+        issues      = linktable(spine, linkmap_file, tablefile, tableschema, table_iterations)
+
+        # Store issues (comparing the table's schema to its data) if there are any
+        size(issues, 1) > 0 && CSV.write(joinpath(tabledir, "data_issues.tsv"), DataFrame(issues); delim='\t')
     end
+end
+
+
+function linktable(spine::DataFrame, linkmap_file::String, tablefile::String, tableschema::TableSchema, iterations::Vector{LinkageIteration})
+end
+
+
+################################################################################
+# Utils
+
+function init_linkmap(cfg::LinkageConfig, n::Int)
+    spineid_schema = get_columnschema(cfg.spine.schema, :spineid)
+    colnames = [:spineid, :recordid, :iterationid]
+    coltypes = [spineid_schema.datatype, Int, Int]
+    DataFrame(coltypes, colnames, n)
+end
+
+
+
+################################################################################
+# OLD
+
 
     #=
     @info "Starting linkage passes"
