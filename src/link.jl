@@ -6,8 +6,9 @@ using DataFrames
 using Logging
 using Schemata
 
-using ..config
+using ..TableIndexes
 using ..distances
+using ..config
 
 
 function linktables(cfg::LinkageConfig, spine::DataFrame)
@@ -29,20 +30,18 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
         table_outfile = joinpath(tabledir, "$(tablename).tsv")
         CSV.write(table_outfile, data; delim='\t')
 
+        # Construct a TableIndex for each LinkageIteration
+        indexes = construct_table_indexes(table_iterations, spine)
+
         # Run the iterations over the data
         table_infile = cfg.tables[tablename].fullpath
-        issues       = linktable(spine, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
-
-        # Store any issues found when comparing the table's schema to its data
-        isempty(issues) == 0 && continue
-        issuesfile = joinpath(tabledir, "data_issues.tsv")
-        @info "$(now()) Table didn't fully comply with the schema. See $(issuesfile) for details."
-        CSV.write(issuesfile, DataFrame(issues); delim='\t')
+        linktable(spine, indexes, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
     end
 end
 
 
-function linktable(spine::DataFrame, linkmap_file::String, table_infile::String, table_outfile::String,
+function linktable(spine::DataFrame, indexes::Dict{Tuple, TableIndex},
+                   linkmap_file::String, table_infile::String, table_outfile::String,
                    tableschema::TableSchema, iterations::Vector{LinkageIteration})
     linkmap   = init_linkmap(cfg, 1_000_000)       # Process the data in batches of 1_000_000 rows
     data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
@@ -55,10 +54,9 @@ function linktable(spine::DataFrame, linkmap_file::String, table_infile::String,
     colnames_done = false
     f = open(table_infile)
     for line in eachline(f)
-        # Parse column names. Init row. Init parsedrow.
+        # Parse column names.
         if colnames_done!
             idx2colname   = Dict(j => Symbol(colname) for (j, colname) in enumerate(strip.(String.(split(line, sep)))))
-            row           = missings(String, length(colname2idx))  # Place holder for cell values
             colnames_done = true
             continue
         end
@@ -77,9 +75,9 @@ function linktable(spine::DataFrame, linkmap_file::String, table_infile::String,
         # Loop through each LinkageIteration
         for iteration in iterations
             # Identify the best matching spine record (if it exists)
-            candidate_spineids  # Spine records that satisfy iteration.exactmatchcols
-            isempty(candidate_spineids) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
-            spineid = select_best_candidate(row, spine, candidate_spineids, iteration.fuzzymatches)
+            candidate_indices = get_candidate_rowids()  # Indices of rows of the spine that satisfy iteration.exactmatchcols
+            isnothing(candidate_indices) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
+            spineid = select_best_candidate(row, spine, candidate_indices, iteration.fuzzymatches)
             spineid == 0  && continue
 
             # Create a record in the linkmap
@@ -104,12 +102,21 @@ function linktable(spine::DataFrame, linkmap_file::String, table_infile::String,
     end
     i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks)
     close(f)
-    issues
 end
 
 
 ################################################################################
 # Utils
+
+"Returns: Dict(colnames => TableIndex(spine, colnames))"
+function construct_table_indexes(iterations::Vector{LinkageIterations}, spine)
+    result = Dict{Tuple, TableIndex}()
+    for iteration in iterations
+        colnames = [spine_colname for (data_colname, spine_colname) in iterations.exactmatchcols]
+        result[Tuple(colnames)] = TableIndex(spine, colnames)
+    end
+    result
+end
 
 function init_linkmap(cfg::LinkageConfig, n::Int)
     spineid_schema = get_columnschema(cfg.spine.schema, :spineid)

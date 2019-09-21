@@ -1,6 +1,6 @@
 module TableIndexes
 
-export TableIndex, createindex,  get_rowindices, unsafe_get_rowindices
+export TableIndex, get_rowindices, unsafe_get_rowindices
 
 using Tables
 
@@ -12,7 +12,7 @@ struct TableIndex{T1, T2}
 end
 
 
-function createindex(table::T1, colnames::Vector{Symbol}) where {T1}
+function TableIndex(table::T1, colnames::Vector{Symbol}) where {T1}
     # Determine T2
     schema = Tables.schema(table)
     colname2type = Dict{Symbol, Any}(colname => tp for (colname, tp) in zip(schema.names, schema.types))
