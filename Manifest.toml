@@ -165,7 +165,7 @@ uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [[Schemata]]
 deps = ["CategoricalArrays", "DataFrames", "Dates", "Parsers", "YAML"]
-path = "C:\\\\Users\\\\jlaw1812\\\\repos\\\\Schemata.jl"
+git-tree-sha1 = "2f19126b856b3dd5bf8c38e63ca6fce32e15b74c"
 uuid = "b4d66a32-c6c0-5461-b6fa-34bb9cecaf85"
 version = "1.1.0"
 

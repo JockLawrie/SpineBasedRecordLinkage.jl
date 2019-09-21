@@ -1,6 +1,6 @@
 module config
 
-export LinkageConfig, FuzzyMatch
+export LinkageConfig, LinkageIteration, FuzzyMatch
 
 using Dates
 using Schemata

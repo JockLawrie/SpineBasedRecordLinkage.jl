@@ -77,10 +77,10 @@ function linktable(spine::DataFrame, linkmap_file::String, table_infile::String,
         # Loop through each LinkageIteration
         for iteration in iterations
             # Identify the best matching spine record (if it exists)
-            candidates  # Spine records that satisfy iteration.exactmatchcols
-            isempty(candidates) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
-            bestcandidate = select_best_candidate(row, spine, candidates, iteration.fuzzymatches)
-            bestcandidate == 0  && continue
+            candidate_spineids  # Spine records that satisfy iteration.exactmatchcols
+            isempty(candidate_spineids) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
+            spineid = select_best_candidate(row, spine, candidate_spineids, iteration.fuzzymatches)
+            spineid == 0  && continue
 
             # Create a record in the linkmap
             i_linkmap += 1
