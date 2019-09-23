@@ -17,8 +17,8 @@ function run_linkage(configfile::String)
     @info "$(now()) Configuring linkage run"
     cfg = LinkageConfig(configfile)
 
-    @info "$(now()) Initialising linkage directory: $(cfg.directory)"
-    d = cfg.directory
+    @info "$(now()) Initialising output directory: $(cfg.output_directory)"
+    d = cfg.output_directory
     mkdir(d)
     mkdir(joinpath(d, "input"))
     mkdir(joinpath(d, "output"))
@@ -29,7 +29,7 @@ function run_linkage(configfile::String)
     CSV.write(joinpath(d, "output", "Iterations.csv"), iterations; delim=',')  # Write iterations to d/output
 
     @info "$(now()) Importing spine"
-    spine = DataFrame(CSV.File(cfg.spine.filename; type=String, limit=100))    # We only compare Strings...avoids parsing values
+    spine = DataFrame(CSV.File(cfg.spine.datafile; type=String, limit=100))    # We only compare Strings...avoids parsing values
     # TODO: remove limit after testing
 
     # Do the linkage

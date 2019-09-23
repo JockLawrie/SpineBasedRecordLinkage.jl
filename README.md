@@ -1,4 +1,4 @@
-# RecordLinkage.jl
+# SpineBasedRecordLinkage.jl
 
 Record linkage in Julia, configurable in YAML.
 
@@ -6,9 +6,15 @@ Record linkage in Julia, configurable in YAML.
 
 The central concepts are described here. See below for an example.
 
-1. Record linkage is the process of determining whether 2 or more records from diferent data sets refer to the same _entity_.
+1. Record linkage is the process of determining whether two or more records from different data sets refer to the same _entity_.
 
-2. An entity is usually a person, but not necessarily. For example, an entity may be a business enterprise.
+2. An entity is often a person, but may be something else such as a business enterprise.
+
+3. The 2 basic approaches to record linkage are:
+   - **Cluster-based linkage**: Records from the various data sets are clustered according to their content.
+   - **Spine-based linkage**:   Records are linked one at a time to a _spine_ - a table in which each record specifies an entity.
+
+
 
 3. An entity is identified by a set of fields. For example, a person can be identified by his/her name, birth date, address, etc.
 
@@ -29,13 +35,13 @@ config specifies locations of linkmaps.
 if the linkmap files don't exist, the package will init them.
 linkmaps are never overwritten. This forces the user to remove the linkmaps manually if s/he wants to overwrite them.
 
-cd("C:\\Users\\jlaw1812\\repos\\RecordLinkage.jl")
+cd("C:\\Users\\jlaw1812\\repos\\SpineBasedRecordLinkage.jl")
 using Pkg
 Pkg.activate(".")
 
 To run the linkage from PowerShell:
 
-PS> cd C:\Users\jlaw1812\repos\RecordLinkage.jl
+PS> cd C:\Users\jlaw1812\repos\SpineBasedRecordLinkage.jl
 PS> C:\Users\jlaw1812\AppData\Local\Julia-1.2.0\bin\julia scripts\run_linkage.jl C:\Users\jlaw1812\data\input\linkage_config.yaml
 
 When writing output, create a new directory using the run's timestamp. Do not overwrite any input! 

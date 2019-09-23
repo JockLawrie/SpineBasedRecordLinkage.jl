@@ -1,4 +1,4 @@
-name = "RecordLinkage"
+name = "SpineBasedRecordLinkage"
 uuid = "c1ccfb80-616c-11e9-2032-47e8246e4458"
 authors = ["Jock Lawrie <jock.lawrie@gmail.com>"]
 version = "0.1.0"

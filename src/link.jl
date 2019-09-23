@@ -12,16 +12,16 @@ using ..config
 
 
 function linktables(cfg::LinkageConfig, spine::DataFrame)
-    spine_primarykey = cfg.spine.schema
+    spineschema = cfg.spine.schema
+    linkmap     = init_linkmap(cfg, 0)
     for table_iterations in cfg.iterations
         # Make an output directory for the table
         tablename = table_iterations[1].tablename
         @info "$(now()) Starting linkage for table $(tablename)"
-        tabledir  = joinpath(joinpath(cfg.directory, "output"), tablename)
+        tabledir  = joinpath(joinpath(cfg.output_directory, "output"), tablename)
         mkdir(tabledir)
 
         # Create an empty linkmap and store it in the output directory
-        linkmap      = init_linkmap(cfg,  0)
         linkmap_file = joinpath(tabledir, "linkmap-$(tablename).tsv")
         CSV.write(linkmap_file, linkmap; delim='\t')
 
@@ -31,34 +31,35 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
         table_outfile = joinpath(tabledir, "$(tablename).tsv")
         CSV.write(table_outfile, data; delim='\t')
 
-        # Construct a TableIndex for each LinkageIteration (iteration.id => TableIndex)
-        iterationid2index = construct_table_indexes(table_iterations, spine)
-        iterationid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in iterationid2index)  # Placeholder for lookup keys
+        # Construct some convenient lookups for computational efficiency
+        iterationid2index = construct_table_indexes(table_iterations, spine)  # iteration.id => TableIndex
+        iterationid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in iterationid2index)  # Place-holder for lookup keys
 
-        # Run the iterations over the data
+        # Run the data through each iteration
         table_infile = cfg.tables[tablename].fullpath
-        linktable(spine, spine_primarykey, iterationid2index, iterationid2key, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
+        linktable(spine, spineschema, iterationid2index, iterationid2key, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
     end
 end
 
 
-function linktable(spine::DataFrame, spine_primarykey::Symbol,
+function linktable(spine::DataFrame, spineschema::TableSchema,
                    iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}},
                    linkmap_file::String, table_infile::String, table_outfile::String,
                    tableschema::TableSchema, iterations::Vector{LinkageIteration})
-    linkmap   = init_linkmap(cfg, 1_000_000)       # Process the data in batches of 1_000_000 rows
-    data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
+    linkmap   = init_linkmap(spineschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
+    data      = init_data(tableschema, 1_000_000)     # Process the data in batches of 1_000_000 rows
     i_linkmap = 0
     i_data    = 0
     nlinks    = 0
     row       = Dict{Symbol, String}()  # colname => value
     delim     = table_infile[(end - 2):end] == "csv" ? "," : "\t"
-    idx2colname   = nothing
-    colnames_done = false
+    idx2colname      = nothing
+    colnames_done    = false
+    spine_primarykey = spineschema.primarykey
     f = open(table_infile)
     for line in eachline(f)
         # Parse column names.
-        if colnames_done!
+        if !colnames_done
             idx2colname   = Dict(j => Symbol(colname) for (j, colname) in enumerate(strip.(String.(split(line, sep)))))
             colnames_done = true
             continue
@@ -87,7 +88,7 @@ function linktable(spine::DataFrame, spine_primarykey::Symbol,
 
             # Create a record in the linkmap
             i_linkmap += 1
-            linkmap[i_linkmap, :spineid]     = bestcandidate
+            linkmap[i_linkmap, :spineid]     = spineid
             linkmap[i_linkmap, :recordid]    = recordid
             linkmap[i_linkmap, :iterationid] = iteration.id
             break  # Row has been linked, no need to link on other criteria
@@ -123,10 +124,12 @@ function construct_table_indexes(iterations::Vector{LinkageIterations}, spine)
     result
 end
 
-function init_linkmap(cfg::LinkageConfig, n::Int)
-    spineid_schema = get_columnschema(cfg.spine.schema, :spineid)
-    colnames = [:spineid, :recordid, :iterationid]
-    coltypes = [spineid_schema.datatype, Int, Int]
+function init_linkmap(spineschema::TableSchema, n::Int)
+    pk_colname  = spineschema.primarykey[1]        # Assumes the spine's primary key has 1 column
+    pk_schema   = spineschema.columns[pk_colname]  # ColumnSchema of the spine's primary key
+    pk_datatype = pk_schema.datatype
+    colnames    = [pk_colname, :recordid, :iterationid]
+    coltypes    = [pk_datatype, Int, Int]
     DataFrame(coltypes, colnames, n)
 end
 
