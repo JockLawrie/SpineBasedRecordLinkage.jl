@@ -12,6 +12,7 @@ using ..config
 
 
 function linktables(cfg::LinkageConfig, spine::DataFrame)
+    spine_primarykey = cfg.spine.schema
     for table_iterations in cfg.iterations
         # Make an output directory for the table
         tablename = table_iterations[1].tablename
@@ -30,17 +31,19 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
         table_outfile = joinpath(tabledir, "$(tablename).tsv")
         CSV.write(table_outfile, data; delim='\t')
 
-        # Construct a TableIndex for each LinkageIteration
-        indexes = construct_table_indexes(table_iterations, spine)
+        # Construct a TableIndex for each LinkageIteration (iteration.id => TableIndex)
+        iterationid2index = construct_table_indexes(table_iterations, spine)
+        iterationid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in iterationid2index)  # Placeholder for lookup keys
 
         # Run the iterations over the data
         table_infile = cfg.tables[tablename].fullpath
-        linktable(spine, indexes, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
+        linktable(spine, spine_primarykey, iterationid2index, iterationid2key, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
     end
 end
 
 
-function linktable(spine::DataFrame, indexes::Dict{Tuple, TableIndex},
+function linktable(spine::DataFrame, spine_primarykey::Symbol,
+                   iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}},
                    linkmap_file::String, table_infile::String, table_outfile::String,
                    tableschema::TableSchema, iterations::Vector{LinkageIteration})
     linkmap   = init_linkmap(cfg, 1_000_000)       # Process the data in batches of 1_000_000 rows
@@ -75,9 +78,11 @@ function linktable(spine::DataFrame, indexes::Dict{Tuple, TableIndex},
         # Loop through each LinkageIteration
         for iteration in iterations
             # Identify the best matching spine record (if it exists)
-            candidate_indices = get_candidate_rowids()  # Indices of rows of the spine that satisfy iteration.exactmatchcols
-            isnothing(candidate_indices) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
-            spineid = select_best_candidate(row, spine, candidate_indices, iteration.fuzzymatches)
+            tableindex = iterationid2index[iteration.id]
+            k = constructkey(row, tableindex.colnames, iterationid2key[iteration.id])
+            !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
+            candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy iteration.exactmatchcols
+            spineid = select_best_candidate(spine, spine_primarykey, candidate_indices, row, iteration.fuzzymatches)
             spineid == 0  && continue
 
             # Create a record in the linkmap
@@ -108,12 +113,12 @@ end
 ################################################################################
 # Utils
 
-"Returns: Dict(colnames => TableIndex(spine, colnames))"
+"Returns: Dict(iterationid => TableIndex(spine, colnames))"
 function construct_table_indexes(iterations::Vector{LinkageIterations}, spine)
-    result = Dict{Tuple, TableIndex}()
+    result = Dict{Int, TableIndex}()
     for iteration in iterations
         colnames = [spine_colname for (data_colname, spine_colname) in iterations.exactmatchcols]
-        result[Tuple(colnames)] = TableIndex(spine, colnames)
+        result[iteration.id] = TableIndex(spine, colnames)
     end
     result
 end
@@ -154,116 +159,40 @@ function extract_row!(row::Dict{Symbol, String}, line::String, delim::String, id
     end
 end
 
-################################################################################
-# OLD
-
-"""
-Modified: newrows, linked_tids
-
-Match subsets of rows of the input table to exactly one person in the Person table.
-
-The subsets are determined by exactmatchcols and the fuzzymatch criteria.
-
-For a given row of the data table:
-- If there are no fuzzy match criteria and there is more than 1 candidate match then the row is left unlinked
-- If there are fuzzy match criteria then the best candidate match (that with the smallest distance from the row) is selected
-
-INPUT
-- linked_tids: records of tablename that are already linked
-"""
-function link!(newrows, linked_tids::Set{String}, tablefullpath::String, exactmatchcols::Vector{Symbol}, fuzzymatches::Vector{FuzzyMatch}, linkmapfile::String)
-    pt         = persontable.data["table"]
-    dist       = fill(0.0, length(fuzzymatches))        # Work space for storing distances
-    rid2idx    = construct_rid2idx(pt, exactmatchcols)  # recordid => Set(row indices), where recordid = recordid(d, exactmatchcols) and d is a row of the Person table.
-    csvfile    = CSV.File(tablefullpath; delim='\t')
-    rowkeys    = Set(csvfile.names)  # Column names in data table
-    n_newlinks = 0
-    i = 0
-    for row in csvfile
-        # Check whether row is already linked
-        in(row.recordid, linked_tids) && continue
-
-        # Init candidate matches: matches on exactmatchcols
-        v   = [in(colname, rowkeys) ? getproperty(row, colname) : missing for colname in exactmatchcols]
-        rid = persontable.recordid(v)
-        !haskey(rid2idx, rid) && continue  # row has no candidate matches
-        candidates = rid2idx[rid]
-
-        # Select best candidate using fuzzy criteria
-        bestcandidate = select_best_candidate(row, candidates, pt, fuzzymatches, dist)
-
-        # Create a new record in the linkmap
-        bestcandidate[:i] == 0 && continue  # No candidate satisfied the matching criteria
-        i          += 1
-        n_newlinks += 1
-        newrows[i, :tablerecordid]  = row.recordid
-        newrows[i, :personrecordid] = pt[bestcandidate[:i], :recordid]
-        push!(linked_tids, row.recordid)
-
-        # If newrows is full, write to disk
-        rem(i, 1_000_000) > 0 && continue
-        newrows |> CSV.write(linkmapfile; delim='\t', append=true)
-        i = 0  # Reset the row number
+function constructkey(datarow::Dict{Symbol, String}, colnames::Vector{Symbol}, vals::Vector{String})
+    j = 0
+    for colname in colnames  # Populate vals with the row's values of tableindex.colnames (iteration.exactmatchcols)
+        j += 1
+        vals[j] = datarow[colname]
     end
-    if i != 0
-        newrows[1:i, :] |> CSV.write(linkmapfile; delim='\t', append=true)
-    end
-    n_newlinks
+    Tuple(vals)
 end
 
-
-function construct_rid2idx(pt, exactmatchcols)
-    rid2idx = Dict{String, Set{Int}}()
-    i = 0
-    for r in eachrow(pt)
-        i  += 1
-        rid = persontable.recordid(r, exactmatchcols)
-        if !haskey(rid2idx, rid)
-            rid2idx[rid] = Set{Int}()
-        end
-        push!(rid2idx[rid], i)
+function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indices::Vector{Int}, fuzzymatches::Vector{FuzzyMatch}, row::Dict{Symbol, String})
+    if isempty(fuzzymatches)
+        length(candidate_indices) == 1 && return spine[candidate_indices[1], spine_primarykey]  # There is 1 candidate and no further selection criteria to be met
+        return 0  # There is more than 1 candidate and no way to select the best one
     end
-    rid2idx
-end
-
-
-function select_best_candidate(row, candidates::Set{Int}, pt, fuzzymatches::Vector{FuzzyMatch}, dist::Vector{Float64})
-    isempty(fuzzymatches) && length(candidates) == 1 && return (i=pop!(deepcopy(candidates)), distance=99.0)
-    isempty(fuzzymatches) && return (i=0, distance=99.0)
-    bestcandidate = (i=0, distance=99.0)
-    nfm = size(fuzzymatches, 1)
-    for i in candidates
-        # Compute distances
-        i_is_candidate = true
-        fill!(dist, 0.0)
-        for j = 1:nfm
-            fm      = fuzzymatches[j]
-            dist[j] = compute_distance(fm.distancemetric, getproperty(row, fm.tablecolumn), pt[i, fm.personcolumn])
-            if dist[j] > fm.threshold
-                i_is_candidate = false
+    result = 0
+    min_distance = 1.0
+    for i_spine in candidate_indices
+        dist = 0.0
+        ok   = true  # Each FuzzyMatch criterion is satisfied
+        for fuzzymatch in fuzzymatches
+            d = distance(fuzzymatch.distancemetric, row[fuzzymatch.datacolumn], spine[i_spine, fuzzymatch.spinecolumn])
+            if d <= fuzzymatch.threshold
+                dist += d
+            else
+                ok = false
                 break
             end
         end
-        !i_is_candidate && continue
-
-        # Compute overall distance and compare to best candidate
-        d = overalldistance(dist)
-        if d < bestcandidate[:distance]
-            bestcandidate = (i=i, distance=d)
-        end
-    end
-    bestcandidate
-end
-
-
-function get_linked_tids(linkmapfile::String)
-    result  = Set{String}()
-    csvfile = CSV.File(linkmapfile; delim='\t')
-    for r in csvfile
-        push!(result, getproperty(r, :tablerecordid))
+        !ok && continue  # Not every FuzzyMatch criterion is satisfied
+        dist >= min_distance && continue  # distance(row, candidate) is not minimal among candidates tested so far
+        min_distance = dist
+        result = spine[i_spine, spine_primarykey]
     end
     result
 end
-
 
 end

@@ -8,7 +8,7 @@ using Tables
 struct TableIndex{T1, T2}
     table::T1
     colnames::Vector{Symbol}      # Column names used to construct the index
-    index::Dict{T2, Vector{Int}}  # (colname1=val1, ...) => [rowindex1, ...]
+    index::Dict{T2, Vector{Int}}  # (val1, val2, ...) => [rowindex1, ...], where val_j = value of colnames[j]
 end
 
 

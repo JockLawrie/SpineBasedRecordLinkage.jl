@@ -29,12 +29,8 @@ function run_linkage(configfile::String)
     CSV.write(joinpath(d, "output", "Iterations.csv"), iterations; delim=',')  # Write iterations to d/output
 
     @info "$(now()) Importing spine"
-    spine0        = DataFrame(CSV.File(cfg.spine.filename; limit=100))  # TODO: remove limit after testing
-    spine, issues = enforce_schema(spine0, cfg.spine.schema, false)
-    if size(issues, 1) != 0
-        CSV.write(joinpath(d, "output", "SpineIssues.tsv"), DataFrame(issues); delim='\t')
-        @error "The spine does not match its schema. See $(joinpath(d, "output", "SpineIssues.tsv")) for details."
-    end
+    spine = DataFrame(CSV.File(cfg.spine.filename; type=String, limit=100))    # We only compare Strings...avoids parsing values
+    # TODO: remove limit after testing
 
     # Do the linkage
     link.linktables(cfg, spine)
