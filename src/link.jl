@@ -13,7 +13,7 @@ using ..config
 
 function linktables(cfg::LinkageConfig, spine::DataFrame)
     spineschema = cfg.spine.schema
-    linkmap     = init_linkmap(cfg, 0)
+    linkmap     = init_linkmap(spineschema, 0)
     for table_iterations in cfg.iterations
         # Make an output directory for the table
         tablename = table_iterations[1].tablename
@@ -26,28 +26,28 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
         CSV.write(linkmap_file, linkmap; delim='\t')
 
         # Create an empty output file for the data and store it in the output directory
-        tableschema   = cfg.tables[tablename].schema
-        data          = init_data(tableschema, 0)  # Columns are [:recordid, primarykey_columns...]
+        table_schema  = cfg.tables[tablename].schema
+        data          = init_data(table_schema, 0)  # Columns are [:recordid, primarykey_columns...]
         table_outfile = joinpath(tabledir, "$(tablename).tsv")
         CSV.write(table_outfile, data; delim='\t')
 
         # Construct some convenient lookups for computational efficiency
-        iterationid2index = construct_table_indexes(table_iterations, spine)  # iteration.id => TableIndex
+        iterationid2index = construct_table_indexes(table_iterations, spine)  # iteration.id => TableIndex(spine, colnames, index)
         iterationid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in iterationid2index)  # Place-holder for lookup keys
 
         # Run the data through each iteration
-        table_infile = cfg.tables[tablename].fullpath
-        linktable(spine, spineschema, iterationid2index, iterationid2key, linkmap_file, table_infile, table_outfile, tableschema, table_iterations)
+        table_infile = cfg.tables[tablename].datafile
+        linktable(spine, spineschema, table_infile, table_outfile, table_schema, linkmap_file, table_iterations, iterationid2index, iterationid2key)
     end
 end
 
 
 function linktable(spine::DataFrame, spineschema::TableSchema,
-                   iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}},
-                   linkmap_file::String, table_infile::String, table_outfile::String,
-                   tableschema::TableSchema, iterations::Vector{LinkageIteration})
+                   table_infile::String, table_outfile::String, table_schema::TableSchema,
+                   linkmap_file::String,
+                   iterations::Vector{LinkageIteration}, iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}})
     linkmap   = init_linkmap(spineschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
-    data      = init_data(tableschema, 1_000_000)     # Process the data in batches of 1_000_000 rows
+    data      = init_data(table_schema,   1_000_000)  # Process the data in batches of 1_000_000 rows
     i_linkmap = 0
     i_data    = 0
     nlinks    = 0
@@ -55,12 +55,13 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
     delim     = table_infile[(end - 2):end] == "csv" ? "," : "\t"
     idx2colname      = nothing
     colnames_done    = false
-    spine_primarykey = spineschema.primarykey
+    data_primarykey  = table_schema.primarykey
+    spine_primarykey = spineschema.primarykey[1]
     f = open(table_infile)
     for line in eachline(f)
         # Parse column names.
         if !colnames_done
-            idx2colname   = Dict(j => Symbol(colname) for (j, colname) in enumerate(strip.(String.(split(line, sep)))))
+            idx2colname   = Dict(j => Symbol(colname) for (j, colname) in enumerate(strip.(String.(split(line, delim)))))
             colnames_done = true
             continue
         end
@@ -68,11 +69,10 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
         # Extract row from line
         extract_row!(row, line, delim, idx2colname)
 
-        # Store primarykey columns
-        i_data  += 1
-        recordid = hash(line)
-        data[i_data, :recordid] = recordid
-        for colname in primarykey_colnames
+        # Store recordid and primary key
+        i_data += 1
+        data[i_data, :recordid] = hash(line)
+        for colname in data_primarykey
             data[i_data, colname] = row[colname]
         end
 
@@ -80,7 +80,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
         for iteration in iterations
             # Identify the best matching spine record (if it exists)
             tableindex = iterationid2index[iteration.id]
-            k = constructkey(row, tableindex.colnames, iterationid2key[iteration.id])
+            k = constructkey!(iterationid2key[iteration.id], row, tableindex.colnames)
             !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
             candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy iteration.exactmatchcols
             spineid = select_best_candidate(spine, spine_primarykey, candidate_indices, row, iteration.fuzzymatches)
@@ -89,7 +89,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
             # Create a record in the linkmap
             i_linkmap += 1
             linkmap[i_linkmap, :spineid]     = spineid
-            linkmap[i_linkmap, :recordid]    = recordid
+            linkmap[i_linkmap, :recordid]    = row[:recordid]
             linkmap[i_linkmap, :iterationid] = iteration.id
             break  # Row has been linked, no need to link on other criteria
         end
@@ -115,11 +115,21 @@ end
 # Utils
 
 "Returns: Dict(iterationid => TableIndex(spine, colnames))"
-function construct_table_indexes(iterations::Vector{LinkageIterations}, spine)
+function construct_table_indexes(iterations::Vector{LinkageIteration}, spine)
+    # Create TableIndexes
+    tmp = Dict{Int, TableIndex}()
+    for iteration in iterations
+        colnames = [spine_colname for (data_colname, spine_colname) in iteration.exactmatchcols]
+        tmp[iteration.id] = TableIndex(spine, colnames)
+    end
+
+    # Replace spine colnames with data colnames
+    # A hack to avoid converting from sine colnames to data colnames on each lookup
     result = Dict{Int, TableIndex}()
     for iteration in iterations
-        colnames = [spine_colname for (data_colname, spine_colname) in iterations.exactmatchcols]
-        result[iteration.id] = TableIndex(spine, colnames)
+        data_colnames = [data_colname for (data_colname, spine_colname) in iteration.exactmatchcols]
+        tableindex    = tmp[iteration.id]
+        result[iteration.id] = TableIndex(spine, data_colnames, tableindex.index)
     end
     result
 end
@@ -129,7 +139,7 @@ function init_linkmap(spineschema::TableSchema, n::Int)
     pk_schema   = spineschema.columns[pk_colname]  # ColumnSchema of the spine's primary key
     pk_datatype = pk_schema.datatype
     colnames    = [pk_colname, :recordid, :iterationid]
-    coltypes    = [pk_datatype, Int, Int]
+    coltypes    = [pk_datatype, UInt, Int]
     DataFrame(coltypes, colnames, n)
 end
 
@@ -151,27 +161,27 @@ function write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
 end
 
 function extract_row!(row::Dict{Symbol, String}, line::String, delim::String, idx2colname::Dict{Int, Symbol})
-    i_start = 1
-    colidx  = 0
-    for j = 1:10_000
-        r       = findnext(delim, line, i_start)  # r = i:i, where line[i] == '\t'
-        i_end   = r[1] - 1
+    i_start    = 1
+    colidx     = 0
+    linelength = length(line)
+    for j = 1:10_000  # Maximum of 10_000 columns
+        r       = findnext(delim, line, i_start)        # r = i:i, where line[i] == '\t'
+        i_end   = isnothing(r) ? linelength : r[1] - 1  # If r is nothing then we're in the last column
         colidx += 1
         row[idx2colname[colidx]] = String(line[i_start:i_end])
+        i_end == linelength && break
         i_start = i_end + 2
     end
 end
 
-function constructkey(datarow::Dict{Symbol, String}, colnames::Vector{Symbol}, vals::Vector{String})
-    j = 0
-    for colname in colnames  # Populate vals with the row's values of tableindex.colnames (iteration.exactmatchcols)
-        j += 1
-        vals[j] = datarow[colname]
+function constructkey!(result::Vector{String}, datarow::Dict{Symbol, String}, colnames::Vector{Symbol})
+    for (j, colname) in enumerate(colnames)  # Populate result with the row's values of tableindex.colnames (iteration.exactmatchcols)
+        result[j] = datarow[colname]
     end
-    Tuple(vals)
+    Tuple(result)
 end
 
-function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indices::Vector{Int}, fuzzymatches::Vector{FuzzyMatch}, row::Dict{Symbol, String})
+function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indices::Vector{Int}, row::Dict{Symbol, String}, fuzzymatches::Vector{FuzzyMatch})
     if isempty(fuzzymatches)
         length(candidate_indices) == 1 && return spine[candidate_indices[1], spine_primarykey]  # There is 1 candidate and no further selection criteria to be met
         return 0  # There is more than 1 candidate and no way to select the best one

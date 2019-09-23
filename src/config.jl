@@ -89,13 +89,13 @@ end
 ################################################################################
 
 """
-directory:  A directory created specifically for the linkage run. It contains all input and output.
-spine:      TableConfig for the spine.
-tables:     Dict of (tablename, TableConfig) pairs, with 1 pair for each data table.
-iterations: Vector{Vector{LinkageIteration}}, where iterations[i] = [iterations for a table i].
+output_directory: A directory created specifically for the linkage run. It contains all output.
+spine:            TableConfig for the spine.
+tables:           Dict of (tablename, TableConfig) pairs, with 1 pair for each data table.
+iterations:       Vector{Vector{LinkageIteration}}, where iterations[i] = [iterations for a table i].
 """
 struct LinkageConfig
-    outputdirectory::String
+    output_directory::String
     spine::TableConfig
     tables::Dict{String, TableConfig}
     iterations::Vector{Vector{LinkageIteration}}  # iterations[i] = [iterations for a table i]
@@ -104,7 +104,10 @@ end
 function LinkageConfig(configfile::String)
     !isfile(configfile) && error("The config file $(configfile) does not exist.")
     d      = YAML.load_file(configfile)
-    outdir = joinpath(d["output_directory"], "linkage-$(d["projectname])-$(now())")
+    dttm   = "$(round(now(), Second(1)))"
+    dttm   = replace(dttm, "-" => ".")
+    dttm   = replace(dttm, ":" => ".")
+    outdir = joinpath(d["output_directory"], "linkage-$(d["projectname"])-$(dttm)")
     spine  = TableConfig("spine", d["spine"])
     tables = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
 

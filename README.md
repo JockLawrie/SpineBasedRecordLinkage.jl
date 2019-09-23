@@ -1,6 +1,6 @@
 # SpineBasedRecordLinkage.jl
 
-Record linkage in Julia, configurable in YAML.
+Spine-based record linkage in Julia, configurable in YAML.
 
 ## Methodology
 

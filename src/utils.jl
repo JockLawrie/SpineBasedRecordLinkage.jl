@@ -7,7 +7,7 @@ using ..config
 function get_package_version()
     pkg_version = "unknown"
     srcdir = @__DIR__
-    r      = findfirst("RecordLinkage.jl", srcdir)  # i:j
+    r      = findfirst("SpineBasedRecordLinkage.jl", srcdir)  # i:j
     pkgdir = srcdir[1:r[end]]
     f = open(joinpath(pkgdir, "Project.toml"))
     i = 0
@@ -24,7 +24,7 @@ end
 
 function construct_software_versions_table()
     pkg_version = get_package_version()
-    DataFrame(software=["Julia", "RecordLinkage.jl"], version=[VERSION, pkg_version])
+    DataFrame(software=["Julia", "SpineBasedRecordLinkage.jl"], version=[VERSION, pkg_version])
 end
 
 function construct_iterations_table(cfg::LinkageConfig)
