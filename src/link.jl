@@ -89,7 +89,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
             # Create a record in the linkmap
             i_linkmap += 1
             linkmap[i_linkmap, :spineid]     = spineid
-            linkmap[i_linkmap, :recordid]    = row[:recordid]
+            linkmap[i_linkmap, :recordid]    = data[i_data, :recordid]
             linkmap[i_linkmap, :iterationid] = iteration.id
             break  # Row has been linked, no need to link on other criteria
         end
@@ -136,10 +136,8 @@ end
 
 function init_linkmap(spineschema::TableSchema, n::Int)
     pk_colname  = spineschema.primarykey[1]        # Assumes the spine's primary key has 1 column
-    pk_schema   = spineschema.columns[pk_colname]  # ColumnSchema of the spine's primary key
-    pk_datatype = pk_schema.datatype
     colnames    = [pk_colname, :recordid, :iterationid]
-    coltypes    = [pk_datatype, UInt, Int]
+    coltypes    = [String, UInt, Int]
     DataFrame(coltypes, colnames, n)
 end
 
@@ -156,7 +154,7 @@ end
 function write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
     nlinks += size(linkmap, 1)
     CSV.write(linkmap_file, linkmap; delim='\t', append=true)
-    @info "$(now()) $(nlinks) created"
+    @info "$(now()) $(nlinks) links created"
     nlinks
 end
 

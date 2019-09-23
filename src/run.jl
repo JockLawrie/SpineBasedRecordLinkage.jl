@@ -32,58 +32,10 @@ function run_linkage(configfile::String)
     @info "$(now()) Importing spine"
     spine = DataFrame(CSV.File(cfg.spine.datafile; type=String))    # We only compare Strings...avoids parsing values
 
-    @info "$(now()) Parsing spine primary key"
-    pk_colname = cfg.spine.schema.primarykey[1]
-    parse_spine_primarykey!(cfg.spine.schema.columns[pk_colname], spine)
-
     # Do the linkage
     link.linktables(cfg, spine)
 
     @info "$(now()) Finished linkage"
-end
-
-
-"TODO: Include a version of thi function in Schemata.jl, delete this function."
-function parse_spine_primarykey!(colschema::ColumnSchema, indata)
-    n            = size(indata, 1)
-    target_type  = colschema.datatype
-    outdata      = missings(target_type, n)
-    datacol      = indata[!, colschema.name]
-    parser       = colschema.parser
-    validvals    = colschema.validvalues
-    invalid_vals = Set{Any}()
-    for i = 1:n
-        val = datacol[i]
-        ismissing(val) && continue
-        val isa String && val == "" && continue
-        is_invalid = false
-        if !(val isa target_type)  # Convert type
-            try
-                val = parse(parser, val)
-            catch
-                is_invalid = true
-            end
-        end
-        # Value has correct type, now check that value is in the valid range
-        if !is_invalid && !Schemata.handle_validvalues.value_is_valid(val, validvals)
-            is_invalid = true
-        end
-        # Record invalid value
-        if is_invalid && !set_invalid_to_missing && length(invalid_vals) < 5  # Record no more than 5 invlaid values
-            push!(invalid_vals, val)
-        end
-        # Write valid value to outdata
-        !(val isa target_type) && continue
-        if !is_invalid || (is_invalid && !set_invalid_to_missing)
-            outdata[i] = val
-        end
-    end
-    if !isempty(invalid_vals)
-        invalid_vals = [x for x in invalid_vals]  # Convert Set to Vector
-        sort!(invalid_vals)
-        @info "The spine's primary key has some invalid values: $(invalid_vals)"
-    end
-    indata[!, colschema.name] = outdata
 end
 
 end
