@@ -165,9 +165,9 @@ uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [[Schemata]]
 deps = ["CSV", "CategoricalArrays", "DataFrames", "Dates", "Parsers", "Tables", "YAML"]
-git-tree-sha1 = "76bbd882dcffc0c1efd1a21367a73574f733d73a"
+git-tree-sha1 = "c8549aed13e0452731989438dd0bc3061c451221"
 uuid = "b4d66a32-c6c0-5461-b6fa-34bb9cecaf85"
-version = "2.0.0"
+version = "2.0.1"
 
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
