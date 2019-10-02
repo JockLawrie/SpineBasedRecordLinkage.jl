@@ -26,8 +26,8 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
         CSV.write(linkmap_file, linkmap; delim='\t')
 
         # Create an empty output file for the data and store it in the output directory
-        table_schema  = cfg.tables[tablename].schema
-        data          = init_data(table_schema, 0)  # Columns are [:recordid, primarykey_columns...]
+        tableschema   = cfg.tables[tablename].schema
+        data          = init_data(tableschema, 0)  # Columns are [:recordid, primarykey_columns...]
         table_outfile = joinpath(tabledir, "$(tablename).tsv")
         CSV.write(table_outfile, data; delim='\t')
 
@@ -37,50 +37,38 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
 
         # Run the data through each iteration
         table_infile = cfg.tables[tablename].datafile
-        linktable(spine, spineschema, table_infile, table_outfile, table_schema, linkmap_file, table_iterations, iterationid2index, iterationid2key)
+        linktable(spine, spineschema, table_infile, table_outfile, tableschema, linkmap_file, table_iterations, iterationid2index, iterationid2key)
     end
 end
 
-
 function linktable(spine::DataFrame, spineschema::TableSchema,
-                   table_infile::String, table_outfile::String, table_schema::TableSchema,
+                   table_infile::String, table_outfile::String, tableschema::TableSchema,
                    linkmap_file::String,
                    iterations::Vector{LinkageIteration}, iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}})
     linkmap   = init_linkmap(spineschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
-    data      = init_data(table_schema,   1_000_000)  # Process the data in batches of 1_000_000 rows
+    data      = init_data(tableschema,    1_000_000)  # Process the data in batches of 1_000_000 rows
     i_linkmap = 0
     i_data    = 0
     nlinks    = 0
-    row       = Dict{Symbol, String}()  # colname => value
-    delim     = table_infile[(end - 2):end] == "csv" ? "," : "\t"
-    idx2colname      = nothing
-    colnames_done    = false
-    data_primarykey  = table_schema.primarykey
+    ndata     = 0
+    tablename = tableschema.name
+    data_primarykey  = tableschema.primarykey
     spine_primarykey = spineschema.primarykey[1]
-    f = open(table_infile)
-    for line in eachline(f)
-        # Parse column names.
-        if !colnames_done
-            idx2colname   = Dict(j => Symbol(colname) for (j, colname) in enumerate(strip.(String.(split(line, delim)))))
-            colnames_done = true
-            continue
-        end
-
-        # Extract row from line
-        extract_row!(row, line, delim, idx2colname)
-
+    for row in CSV.Rows(table_infile; reusebuffer=true)
         # Store recordid and primary key
         i_data += 1
-        data[i_data, :recordid] = hash(line)
         for colname in data_primarykey
-            data[i_data, colname] = row[colname]
+            data[i_data, colname] = getproperty(row, colname)
         end
+        data[i_data, :recordid] = hash(data[i_data, 2:end])
 
         # Loop through each LinkageIteration
         for iteration in iterations
             # Identify the best matching spine record (if it exists)
             tableindex = iterationid2index[iteration.id]
-            k = constructkey!(iterationid2key[iteration.id], row, tableindex.colnames)
+            hasmissing = constructkey!(iterationid2key[iteration.id], row, tableindex.colnames)
+            hasmissing && continue
+            k = Tuple(iterationid2key[iteration.id])
             !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
             candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy iteration.exactmatchcols
             spineid = select_best_candidate(spine, spine_primarykey, candidate_indices, row, iteration.fuzzymatches)
@@ -98,18 +86,25 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
         if i_data == 1_000_000
             CSV.write(table_outfile, data; delim='\t', append=true)
             i_data = 0  # Reset the row number
+            ndata += 1_000_000
+            @info "$(now()) Exported $(ndata) rows of table $(tablename)"
         end
 
         # If linkmap is full, write to disk
         if i_linkmap == 1_000_000
-            nlinks    = write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
+            nlinks    = write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
             i_linkmap = 0  # Reset the row number
         end
     end
-    i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks)
-    close(f)
-end
 
+    # Write remaining rows if they exist
+    i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks, tablename)
+    if i_data != 0
+        CSV.write(table_outfile, data[1:i_data, :]; append=true, delim='\t')
+        ndata += i_data
+        @info "$(now()) Exported $(ndata) rows of table $(tablename)"
+    end
+end
 
 ################################################################################
 # Utils
@@ -143,43 +138,28 @@ end
 
 function init_data(tableschema::TableSchema, n::Int)
     colnames = vcat(:recordid, tableschema.primarykey)
-    coltypes = [UInt]
-    for colname in tableschema.primarykey
-        colschema = tableschema.columns[colname]
-        push!(coltypes, colschema.datatype)
-    end
+    coltypes = vcat(UInt, fill(Union{Missing, String}, length(tableschema.primarykey)))
     DataFrame(coltypes, colnames, n)
 end
 
-function write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
+function write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
     nlinks += size(linkmap, 1)
     CSV.write(linkmap_file, linkmap; delim='\t', append=true)
-    @info "$(now()) $(nlinks) links created"
+    @info "$(now()) $(nlinks) links created between the spine and table $(tablename)"
     nlinks
 end
 
-function extract_row!(row::Dict{Symbol, String}, line::String, delim::String, idx2colname::Dict{Int, Symbol})
-    i_start    = 1
-    colidx     = 0
-    linelength = length(line)
-    for j = 1:10_000  # Maximum of 10_000 columns
-        r       = findnext(delim, line, i_start)        # r = i:i, where line[i] == '\t'
-        i_end   = isnothing(r) ? linelength : r[1] - 1  # If r is nothing then we're in the last column
-        colidx += 1
-        row[idx2colname[colidx]] = String(line[i_start:i_end])
-        i_end == linelength && break
-        i_start = i_end + 2
-    end
-end
-
-function constructkey!(result::Vector{String}, datarow::Dict{Symbol, String}, colnames::Vector{Symbol})
+"Returns: true if row[colnames] includes a missing value."
+function constructkey!(result::Vector{String}, row, colnames::Vector{Symbol})
     for (j, colname) in enumerate(colnames)  # Populate result with the row's values of tableindex.colnames (iteration.exactmatchcols)
-        result[j] = datarow[colname]
+        val = getproperty(row, colname)
+        ismissing(val) && return true
+        result[j] = val
     end
-    Tuple(result)
+    false
 end
 
-function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indices::Vector{Int}, row::Dict{Symbol, String}, fuzzymatches::Vector{FuzzyMatch})
+function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indices::Vector{Int}, row, fuzzymatches::Vector{FuzzyMatch})
     if isempty(fuzzymatches)
         length(candidate_indices) == 1 && return spine[candidate_indices[1], spine_primarykey]  # There is 1 candidate and no further selection criteria to be met
         return 0  # There is more than 1 candidate and no way to select the best one
@@ -190,7 +170,9 @@ function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indice
         dist = 0.0
         ok   = true  # Each FuzzyMatch criterion is satisfied
         for fuzzymatch in fuzzymatches
-            d = distance(fuzzymatch.distancemetric, row[fuzzymatch.datacolumn], spine[i_spine, fuzzymatch.spinecolumn])
+            dataval  = getproperty(row, colname)
+            spineval = spine[i_spine, fuzzymatch.spinecolumn]
+            d        = distance(fuzzymatch.distancemetric, dataval, spineval)
             if d <= fuzzymatch.threshold
                 dist += d
             else
