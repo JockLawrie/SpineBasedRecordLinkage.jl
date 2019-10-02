@@ -51,6 +51,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
     i_data    = 0
     nlinks    = 0
     ndata     = 0
+    tablename = tableschema.name
     data_primarykey  = tableschema.primarykey
     spine_primarykey = spineschema.primarykey[1]
     for row in CSV.Rows(table_infile; reusebuffer=true)
@@ -86,22 +87,22 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
             CSV.write(table_outfile, data; delim='\t', append=true)
             i_data = 0  # Reset the row number
             ndata += 1_000_000
-            @info "$(now()) Exported $(ndata) rows of table $(tableschema.name)"
+            @info "$(now()) Exported $(ndata) rows of table $(tablename)"
         end
 
         # If linkmap is full, write to disk
         if i_linkmap == 1_000_000
-            nlinks    = write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
+            nlinks    = write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
             i_linkmap = 0  # Reset the row number
         end
     end
 
     # Write remaining rows if they exist
-    i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks)
+    i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks, tablename)
     if i_data != 0
         CSV.write(table_outfile, data[1:i_data, :]; append=true, delim='\t')
         ndata += i_data
-        @info "$(now()) Exported $(ndata) rows of table $(tableschema.name)"
+        @info "$(now()) Exported $(ndata) rows of table $(tablename)"
     end
 end
 
@@ -141,10 +142,10 @@ function init_data(tableschema::TableSchema, n::Int)
     DataFrame(coltypes, colnames, n)
 end
 
-function write_linkmap_to_disk(linkmap_file, linkmap, nlinks)
+function write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
     nlinks += size(linkmap, 1)
     CSV.write(linkmap_file, linkmap; delim='\t', append=true)
-    @info "$(now()) $(nlinks) links created"
+    @info "$(now()) $(nlinks) links created between the spine and table $(tablename)"
     nlinks
 end
 
