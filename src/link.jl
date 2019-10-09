@@ -13,7 +13,7 @@ using ..config
 
 function linktables(cfg::LinkageConfig, spine::DataFrame)
     spineschema = cfg.spine.schema
-    linkmap     = init_linkmap(spineschema, 0)
+    linkmap     = DataFrame([UInt, UInt, Int], [:spineid, :recordid, :iterationid], 0)
     for table_iterations in cfg.iterations
         # Make an output directory for the table
         tablename = table_iterations[1].tablename
@@ -45,7 +45,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
                    table_infile::String, table_outfile::String, tableschema::TableSchema,
                    linkmap_file::String,
                    iterations::Vector{LinkageIteration}, iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}})
-    linkmap   = init_linkmap(spineschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
+    linkmap   = DataFrame([UInt, UInt, Int], [:spineid, :recordid, :iterationid], 1_000_000)  # Process the data in batches of 1_000_000 rows
     data      = init_data(tableschema,    1_000_000)  # Process the data in batches of 1_000_000 rows
     i_linkmap = 0
     i_data    = 0
@@ -127,13 +127,6 @@ function construct_table_indexes(iterations::Vector{LinkageIteration}, spine)
         result[iteration.id] = TableIndex(spine, data_colnames, tableindex.index)
     end
     result
-end
-
-function init_linkmap(spineschema::TableSchema, n::Int)
-    pk_colname  = spineschema.primarykey[1]        # Assumes the spine's primary key has 1 column
-    colnames    = [pk_colname, :recordid, :iterationid]
-    coltypes    = [String, UInt, Int]
-    DataFrame(coltypes, colnames, n)
 end
 
 function init_data(tableschema::TableSchema, n::Int)

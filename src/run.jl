@@ -32,6 +32,20 @@ function run_linkage(configfile::String)
     @info "$(now()) Importing spine"
     spine = DataFrame(CSV.File(cfg.spine.datafile; type=String))    # We only compare Strings...avoids parsing values
 
+    @info "$(now()) Appending spineid to spine"
+    utils.append_spineid!(spine, cfg.spine.schema.primarykey)
+
+    @info "$(now()) Writing spine_identified.tsv to disk"
+    CSV.write(joinpath(cfg.output_directory, "output", "spine_identified.tsv"), spine[!, vcat(:spineid, cfg.spine.schema.primarykey)]; delim='\t')
+
+    @info "$(now()) Writing spine_deidentified.tsv to disk for reporting"
+    spine_deidentified = DataFrame(spineid = spine[!, :spineid])
+    CSV.write(joinpath(cfg.output_directory, "output", "spine_deidentified.tsv"), spine_deidentified; delim='\t')
+
+    # Replace the spine's primary key with [:spineid]
+    empty!(cfg.spine.schema.primarykey)
+    push!(cfg.spine.schema.primarykey, :spineid)
+
     # Do the linkage
     link.linktables(cfg, spine)
 

@@ -40,4 +40,12 @@ function construct_iterations_table(cfg::LinkageConfig)
     DataFrame(result)
 end
 
+function append_spineid!(spine::DataFrame, primarykey::Vector{Symbol})
+    n = size(spine, 1)
+    spine[!, :spineid] = missings(UInt64, n)
+    for i = 1:n
+        spine[i, :spineid] = hash(spine[i, primarykey])
+    end
+end
+
 end
