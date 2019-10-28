@@ -35,14 +35,6 @@ config specifies locations of linkmaps.
 if the linkmap files don't exist, the package will init them.
 linkmaps are never overwritten. This forces the user to remove the linkmaps manually if s/he wants to overwrite them.
 
-cd("C:\\Users\\jlaw1812\\repos\\SpineBasedRecordLinkage.jl")
-using Pkg
-Pkg.activate(".")
-
-To run the linkage from PowerShell:
-
-PS> cd C:\Users\jlaw1812\repos\SpineBasedRecordLinkage.jl
-PS> C:\Users\jlaw1812\AppData\Local\Julia-1.2.0\bin\julia scripts\run_linkage.jl C:\Users\jlaw1812\data\input\linkage_config.yaml
 
 When writing output, create a new directory using the run's timestamp. Do not overwrite any input! 
 

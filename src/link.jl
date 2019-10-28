@@ -18,17 +18,15 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
         # Make an output directory for the table
         tablename = table_iterations[1].tablename
         @info "$(now()) Starting linkage for table $(tablename)"
-        tabledir  = joinpath(joinpath(cfg.output_directory, "output"), tablename)
-        mkdir(tabledir)
 
         # Create an empty linkmap and store it in the output directory
-        linkmap_file = joinpath(tabledir, "linkmap-$(tablename).tsv")
+        linkmap_file = joinpath(cfg.output_directory, "output", "deidentified", "linkmap-$(tablename).tsv")
         CSV.write(linkmap_file, linkmap; delim='\t')
 
         # Create an empty output file for the data and store it in the output directory
         tableschema   = cfg.tables[tablename].schema
         data          = init_data(tableschema, 0)  # Columns are [:recordid, primarykey_columns...]
-        table_outfile = joinpath(tabledir, "$(tablename).tsv")
+        table_outfile = joinpath(cfg.output_directory, "output", "identified", "$(tablename).tsv")
         CSV.write(table_outfile, data; delim='\t')
 
         # Construct some convenient lookups for computational efficiency
@@ -119,7 +117,7 @@ function construct_table_indexes(iterations::Vector{LinkageIteration}, spine)
     end
 
     # Replace spine colnames with data colnames
-    # A hack to avoid converting from sine colnames to data colnames on each lookup
+    # A hack to avoid converting from spine colnames to data colnames on each lookup
     result = Dict{Int, TableIndex}()
     for iteration in iterations
         data_colnames = [data_colname for (data_colname, spine_colname) in iteration.exactmatchcols]
