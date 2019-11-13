@@ -1,18 +1,38 @@
 # SpineBasedRecordLinkage.jl
 
-Spine-based record linkage in Julia, configurable in YAML.
+Spine-based record linkage in Julia.
+
+## Concepts
+
+1. We start with 1 or more tabular data sets.
+
+2. Each record in each table describes either an entity or an event involving an entity.
+
+3. An __entity__ is the unit of interest. It is usually a person, but may be something else such as a business enterprise.
+
+4. A __event__ involving an entity may be a sale, a hospital admission, an arrest, a mortgage payment, and so on.
+   In some contexts, such as healthcare, events are known as episodes or encounters.
+   In others, such as sales, events are transactions.
+
+5. __Record linkage__ is, at its core, the problem of determining whether two records refer to the same entity.
+
+6. The 2 basic approaches to record linkage are:
+   - **Cluster-based linkage**: Records from the various data sets are clustered according to their content.
+   - **Spine-based linkage**:   Records are linked one at a time to a __spine__ - a table in which each record specifies an entity.
+
+
 
 ## Methodology
 
-The central concepts are described here. See below for an example.
 
-1. Record linkage is the process of determining whether two or more records from different data sets refer to the same _entity_.
+4. This package provides the following functionality:
+   - Configure a linkage run entirely in YAML, so that users needn't write any code.
+   - Iteratively build a spine.
+   - Iteratively build links between the spine and the tables of interest.
+   - Enable exact matching, in which 2 values are matched if and only if they are the same.
+   - Enable fuzzy matching, in which 2 values are matched if the distance between them is below a user-specified threshold.
+     Here distance is a user-selected measure provided by the package.
 
-2. An entity is often a person, but may be something else such as a business enterprise.
-
-3. The 2 basic approaches to record linkage are:
-   - **Cluster-based linkage**: Records from the various data sets are clustered according to their content.
-   - **Spine-based linkage**:   Records are linked one at a time to a _spine_ - a table in which each record specifies an entity.
 
 
 
@@ -42,7 +62,7 @@ When writing output, create a new directory using the run's timestamp. Do not ov
   - When specifying the project name in the config, make it recognisable, such as rq452.
   - For each data table, if last_updated column exists, include it in the primary key.
   - Governance (i.e., versioning) of the spine and the input data tables is the responsibility of the user.
-    - It is out of the scope of the linkage engine (RecordLinkage.jl).
+    - It is out of the scope of the linkage engine.
     - Users must ensure that the spine and data used in a linkage run is preserved without any changes. Otherwise the linkage run may not be reproducible.
 
 2. A persistent linkage map is initialised.
