@@ -1,6 +1,6 @@
 module config
 
-export LinkageConfig, LinkageIteration, FuzzyMatch
+export LinkageConfig, LinkageIteration, FuzzyMatch, spine_construction_config
 
 using Dates
 using Schemata
@@ -103,11 +103,16 @@ end
 
 function LinkageConfig(configfile::String)
     !isfile(configfile) && error("The config file $(configfile) does not exist.")
-    d      = YAML.load_file(configfile)
+    d = YAML.load_file(configfile)
+    LinkageConfig(d, "linkage")
+end
+
+function LinkageConfig(d::Dict, purpose::String)
+    (purpose != "linkage") && (purpose != "spine-construction") && error("Config purpose is not recognised. Must be either linkage or spine-construction.")
     dttm   = "$(round(now(), Second(1)))"
     dttm   = replace(dttm, "-" => ".")
     dttm   = replace(dttm, ":" => ".")
-    outdir = joinpath(d["output_directory"], "linkage-$(d["projectname"])-$(dttm)")
+    outdir = joinpath(d["output_directory"], "$(purpose)-$(d["projectname"])-$(dttm)")
     spine  = TableConfig("spine", d["spine"])
     tables = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
 
@@ -125,6 +130,17 @@ function LinkageConfig(configfile::String)
         push!(iterations[tablename2idx[tablename]], LinkageIteration(iterationid, x))
     end
     LinkageConfig(outdir, spine, tables, iterations)
+end
+
+"Returns: A LinkageConfig with additional checks suitable for the construction of a spine."
+function spine_construction_config(configfile::String)
+    !isfile(configfile) && error("The config file $(configfile) does not exist.")
+    d = YAML.load_file(configfile)
+    length(d["tables"]) != 1 && error("Config for spine construction requires the specification of exactly 1 data table.")
+    data_config = first(d["tables"])  # tablename => Dict("datafile" => filename, "schemafile" => filename)
+    d["spine"]["datafile"]   != data_config["datafile"]   && error("Config for spine construction requires the data table's data file to be the same as the spine's data file.")
+    d["spine"]["schemafile"] != data_config["schemafile"] && error("Config for spine construction requires the data table's schema file to be the same as the spine's schema file.")
+    LinkageConfig(d, "spine-construction")
 end
 
 end
