@@ -16,7 +16,6 @@ using ..link
 function run_linkage(configfile::String)
     @info "$(now()) Configuring linkage run"
     cfg = LinkageConfig(configfile)
-    length(cfg.spine.schema.primarykey) > 1 && error("The spine's primary key has more than 1 column. For computational efficiency please use a primary key with 1 column.")
 
     @info "$(now()) Initialising output directory: $(cfg.output_directory)"
     d = cfg.output_directory

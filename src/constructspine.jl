@@ -18,7 +18,6 @@ Construct a spine by linking a table to itself.
 function construct_spine(configfile::String)
     @info "$(now()) Configuring spine construction"
     cfg = spine_construction_config(configfile)
-    length(cfg.spine.schema.primarykey) > 1 && error("The spine's primary key has more than 1 column. For computational efficiency please use a primary key with 1 column.")
 
     @info "$(now()) Initialising output directory: $(cfg.output_directory)"
     d = cfg.output_directory
@@ -52,6 +51,8 @@ function construct_spine(configfile::String)
 
     # Do the linkage
     link.linktables(cfg, spine)
+
+    # Construct spine that is a subset of the rows of the input data using the output tables from the linkage.
 
     @info "$(now()) Finished linkage"
 end

@@ -115,6 +115,7 @@ function LinkageConfig(d::Dict, purpose::String)
     outdir = joinpath(d["output_directory"], "$(purpose)-$(d["projectname"])-$(dttm)")
     spine  = TableConfig("spine", d["spine"])
     tables = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
+    length(spine.schema.primarykey) > 1 && error("The spine's primary key has more than 1 column. For computational efficiency please use a primary key with 1 column.")
 
     # Iterations: retains original order but grouped by tablename for computational convenience
     iterations    = Vector{LinkageIteration}[]
@@ -132,7 +133,16 @@ function LinkageConfig(d::Dict, purpose::String)
     LinkageConfig(outdir, spine, tables, iterations)
 end
 
-"Returns: A LinkageConfig with additional checks suitable for the construction of a spine."
+"""
+Returns: A LinkageConfig with additional constraints necessary for the construction of a spine.
+
+Specifically, since spine construction involves linking a table to itself, it requires:
+1. Exactly 1 data table.
+2. The data table's data file must be the same as the spine's data file.
+3. The dta table's schema file must be the same as the spine's schema file.
+
+This function performs these checks, and if they all pass a LinkageConfig is returned.
+"""
 function spine_construction_config(configfile::String)
     !isfile(configfile) && error("The config file $(configfile) does not exist.")
     d = YAML.load_file(configfile)

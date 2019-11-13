@@ -44,7 +44,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
                    linkmap_file::String,
                    iterations::Vector{LinkageIteration}, iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}})
     linkmap   = DataFrame([UInt, UInt, Int], [:spineid, :recordid, :iterationid], 1_000_000)  # Process the data in batches of 1_000_000 rows
-    data      = init_data(tableschema,    1_000_000)  # Process the data in batches of 1_000_000 rows
+    data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
     i_linkmap = 0
     i_data    = 0
     nlinks    = 0
@@ -70,7 +70,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
             !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on iteration.exactmatchcols
             candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy iteration.exactmatchcols
             spineid = select_best_candidate(spine, spine_primarykey, candidate_indices, row, iteration.fuzzymatches)
-            spineid == 0  && continue
+            spineid == 0 && continue
 
             # Create a record in the linkmap
             i_linkmap += 1
