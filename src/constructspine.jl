@@ -42,7 +42,7 @@ function construct_spine(configfile::String)
     utils.append_spineid!(spine, cfg.spine.schema.primarykey)
 
     @info "$(now()) Writing spine to disk"
-    colnames = vcat(:spineid, names(spine))
+    colnames = vcat(:spineid, names(data))
     CSV.write(joinpath(cfg.output_directory, "output", "spine.tsv"), spine[!, colnames]; delim='\t')
 
     @info "$(now()) Finished spine construction"

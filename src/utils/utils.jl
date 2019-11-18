@@ -1,7 +1,9 @@
 module utils
 
 using CSV
+using Dates
 using DataFrames
+using Logging
 using Schemata
 
 using ..TableIndexes
