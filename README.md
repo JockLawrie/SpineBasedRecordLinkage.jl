@@ -181,15 +181,3 @@ linkmap:
         - tablerecordid:  {description: Record ID from data table,   datatype: String, categorical: false, required: true, unique: false, validvalues: String}
         - personrecordid: {description: Record ID from person table, datatype: String, categorical: false, required: true, unique: false, validvalues: String}
 ```
-
-
-## TODO
-
-- Implement the reporting stage
-- When doing fuzzy matching, handle missing data better.
-- Implement aliases for names. E.g., robert, rob, bob, bobby, etc.
-- Create a `Libpostal.jl` package.
-- When populating persontable:
-    - Combine rows that are probably the same person (needs fuzzy matching).
-    - E.g., all fields match but 1 row has missing postcode.
-    - Distinguish missing values from differing values (more lenient with the former?)
