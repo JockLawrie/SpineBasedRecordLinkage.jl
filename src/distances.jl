@@ -17,5 +17,4 @@ function distance(metric::Symbol, val1, val2)
     1.0 - compare(metrics[metric](), val1, val2)  # Scales distance to [0, 1], with 1 being equality
 end
 
-
 end

@@ -24,18 +24,6 @@ Spine-based record linkage in Julia.
 
 ## Methodology
 
-
-4. This package provides the following functionality:
-   - Configure a linkage run entirely in YAML, so that users needn't write any code.
-   - Iteratively build a spine.
-   - Iteratively build links between the spine and the tables of interest.
-   - Enable exact matching, in which 2 values are matched if and only if they are the same.
-   - Enable fuzzy matching, in which 2 values are matched if the distance between them is below a user-specified threshold.
-     Here distance is a user-selected measure provided by the package.
-
-
-
-
 3. An entity is identified by a set of fields. For example, a person can be identified by his/her name, birth date, address, etc.
 
 4. An entity's identifying information may change over time, though the entity remains the same. For example, a person may change his/her address.

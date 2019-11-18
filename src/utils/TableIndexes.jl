@@ -4,13 +4,11 @@ export TableIndex, get_rowindices, unsafe_get_rowindices
 
 using Tables
 
-
 struct TableIndex{T1, T2}
     table::T1
     colnames::Vector{Symbol}      # Column names used to construct the index
     index::Dict{T2, Vector{Int}}  # (val1, val2, ...) => [rowindex1, ...], where val_j = value of colnames[j]
 end
-
 
 function TableIndex(table::T1, colnames::Vector{Symbol}) where {T1}
     # Determine T2
@@ -43,7 +41,6 @@ function TableIndex(table::T1, colnames::Vector{Symbol}) where {T1}
     TableIndex{T1, T2}(table, colnames, index)
 end
 
-
 "Returns: Vector of row indices for which table[result, colnames] == k"
 function get_rowindices(tableindex, colnames, k)
     if colnames == tableindex.colnames && haskey(tableindex.index, k)
@@ -54,6 +51,5 @@ end
 
 "As per get_rowidindices, but ASSUMES k corresponds to tableindex.colnames"
 unsafe_get_rowindices(tableindex, k) = haskey(tableindex.index, k) ? tableindex.index[k] : nothing
-
 
 end

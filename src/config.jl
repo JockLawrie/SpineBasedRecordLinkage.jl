@@ -85,7 +85,6 @@ function LinkageIteration(id::Int, d::Dict)
     LinkageIteration(id, tablename, exactmatchcols, fuzzymatches)
 end
 
-
 ################################################################################
 
 """
@@ -147,7 +146,7 @@ function spine_construction_config(configfile::String)
     !isfile(configfile) && error("The config file $(configfile) does not exist.")
     d = YAML.load_file(configfile)
     length(d["tables"]) != 1 && error("Config for spine construction requires the specification of exactly 1 data table.")
-    data_config = first(d["tables"])  # tablename => Dict("datafile" => filename, "schemafile" => filename)
+    data_config = first(d["tables"])[2]  # first(d::Dict) = k=>v. tablename => Dict("datafile" => filename, "schemafile" => filename)
     d["spine"]["datafile"]   != data_config["datafile"]   && error("Config for spine construction requires the data table's data file to be the same as the spine's data file.")
     d["spine"]["schemafile"] != data_config["schemafile"] && error("Config for spine construction requires the data table's schema file to be the same as the spine's schema file.")
     LinkageConfig(d, "spine-construction")

@@ -2,19 +2,17 @@ module SpineBasedRecordLinkage
 
 export construct_spine, run_linkage
 
-include("TableIndexes.jl")
-include("distances.jl")
-include("config.jl")
-include("utils.jl")
-include("link.jl")
+include("distances.jl")           # Independent
+include("utils/TableIndexes.jl")  # Independent
+include("config.jl")              # Depends on distances
+include("utils/utils.jl")         # Depends on config, TableIndexes
 include("constructspine.jl")
 include("runlinkage.jl")
 
-using .TableIndexes
 using .distances
+using .TableIndexes
 using .config
 using .utils
-using .link
 using .constructspine
 using .runlinkage
 
