@@ -73,12 +73,6 @@ function construct_table_indexes(iterations::Vector{LinkageIteration}, spine)
     result
 end
 
-function init_data(tableschema::TableSchema, n::Int)
-    colnames = vcat(:recordid, tableschema.primarykey)
-    coltypes = vcat(UInt, fill(Union{Missing, String}, length(tableschema.primarykey)))
-    DataFrame(coltypes, colnames, n)
-end
-
 "Returns: true if row[colnames] includes a missing value."
 function constructkey!(result::Vector{String}, row, colnames::Vector{Symbol})
     for (j, colname) in enumerate(colnames)  # Populate result with the row's values of tableindex.colnames (iteration.exactmatchcols)
@@ -87,13 +81,6 @@ function constructkey!(result::Vector{String}, row, colnames::Vector{Symbol})
         result[j] = val
     end
     false
-end
-
-function write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
-    nlinks += size(linkmap, 1)
-    CSV.write(linkmap_file, linkmap; delim='\t', append=true)
-    @info "$(now()) $(nlinks) links created between the spine and table $(tablename)"
-    nlinks
 end
 
 end

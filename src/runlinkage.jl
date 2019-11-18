@@ -66,7 +66,7 @@ function linktables(cfg::LinkageConfig, spine::DataFrame)
 
         # Create an empty output file for the data and store it in the output directory
         tableschema   = cfg.tables[tablename].schema
-        data          = utils.init_data(tableschema, 0)  # Columns are [:recordid, primarykey_columns...]
+        data          = init_data(tableschema, 0)  # Columns are [:recordid, primarykey_columns...]
         table_outfile = joinpath(cfg.output_directory, "output", "identified", "$(tablename).tsv")
         CSV.write(table_outfile, data; delim='\t')
 
@@ -85,7 +85,7 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
                    linkmap_file::String,
                    iterations::Vector{LinkageIteration}, iterationid2index::Dict{Int, TableIndex}, iterationid2key::Dict{Int, Vector{String}})
     linkmap   = DataFrame([UInt, UInt, Int], [:spineid, :recordid, :iterationid], 1_000_000)  # Process the data in batches of 1_000_000 rows
-    data      = utils.init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
+    data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
     i_linkmap = 0
     i_data    = 0
     nlinks    = 0
@@ -131,13 +131,13 @@ function linktable(spine::DataFrame, spineschema::TableSchema,
 
         # If linkmap is full, write to disk
         if i_linkmap == 1_000_000
-            nlinks    = utils.write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
+            nlinks    = write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
             i_linkmap = 0  # Reset the row number
         end
     end
 
     # Write remaining rows if they exist
-    i_linkmap != 0 && utils.write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks, tablename)
+    i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks, tablename)
     if i_data != 0
         CSV.write(table_outfile, data[1:i_data, :]; append=true, delim='\t')
         ndata += i_data
@@ -172,6 +172,19 @@ function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indice
         result = spine[i_spine, spine_primarykey]
     end
     result
+end
+
+function init_data(tableschema::TableSchema, n::Int)
+    colnames = vcat(:recordid, tableschema.primarykey)
+    coltypes = vcat(UInt, fill(Union{Missing, String}, length(tableschema.primarykey)))
+    DataFrame(coltypes, colnames, n)
+end
+
+function write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
+    nlinks += size(linkmap, 1)
+    CSV.write(linkmap_file, linkmap; delim='\t', append=true)
+    @info "$(now()) $(nlinks) links created between the spine and table $(tablename)"
+    nlinks
 end
 
 end

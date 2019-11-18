@@ -57,38 +57,57 @@ The algorithm is as follows:
    - Each vertex represents a record in the data table.
    - Each edge (i,j) represents a link between record i in the data and record j in the data.
      Under the hood this is achieved as a link from record i in the data to record j in the spine.
-
 2. For each data record (i)
        For each linkage iteration
            Get all rows from the spine which satisfy the exact match criteria
            For each candidate row from the spine (j)
-               Record the link (i,j), using `add_edge!(g, i, j)`, if the candidate satisfies the fuzzy match criteria
-
-3. Return maximal_cliques(g).
+               Record the link (i,j), using `add_edge!(g, i, j)`, if the candidate satisfies the fuzzy match criteria.
+3. Calcluate maximal_cliques(g).
+4. Remove singletons (vertices with 0 edges), which are singletons because they have incomplete data on all linkage criteria and thus don't even link to themselves.
 """
 function construct_maximal_cliques(cfg::LinkageConfig, spine::DataFrame)
+    # 1. Init graph
     n = size(spine, 1)
     g = SimpleGraph{Int}(n)
-    iterations        = cfg.iterations[1]  # Vector{LinkageIteration}. Each iteration refers to the data table.
-    tablename         = iterations[1].tablename
-    iterationid2index = utils.construct_table_indexes(iterations, spine)  # iteration.id => TableIndex(spine, colnames, index)
-    iterationid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in iterationid2index)  # Place-holder for lookup keys
+
+    # 2. Loop through data
+    iterations         = cfg.iterations[1]  # Vector{LinkageIteration}. Each iteration refers to the data table.
+    tablename          = iterations[1].tablename
+    iterationid2index  = utils.construct_table_indexes(iterations, spine)  # iteration.id => TableIndex(spine, colnames, index)
+    iterationid2key    = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in iterationid2index)  # Place-holder for lookup keys
+    vertices_to_remove = Set{Int}()
     for i_data = 1:n
         datarow = spine[i_data, :]
+        nlinks  = 0
         for iteration in iterations
             tableindex = iterationid2index[iteration.id]
             hasmissing = utils.constructkey!(iterationid2key[iteration.id], datarow, tableindex.colnames)
-            hasmissing && continue                    # datarow[colnames] includes a missing value
+            hasmissing && continue                    # datarow[exactmatchcols] includes a missing value
             k = Tuple(iterationid2key[iteration.id])
-            !haskey(tableindex.index, k) && continue  # datarow doesn't match any spine records on iteration.exactmatchcols
             candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy iteration.exactmatchcols
             for i_spine in candidate_indices
                 ok = candidate_satisfies_fuzzy_criteria(spine, i_spine, datarow, iteration.fuzzymatches)
-                ok && add_edge!(g, i_data, i_spine)  # add_edge returns false if the edge or its reverse (i_spine, i_data) already exists
+                if ok
+                    add_edge!(g, i_data, i_spine)   # Returns false if the edge or its reverse (i_spine, i_data) already exists
+                    nlinks += 1
+                end
             end
         end
+        if nlinks == 0
+            push!(vertices_to_remove, i_data)  # A row links to istelf unless it satifies none of the linkage criteria due to missing data
+        end
     end
-    maximal_cliques(g)
+
+    # 3. Get maximal cliques
+    mc = maximal_cliques(g)
+
+    # 4. Remove singletons with 0 links (due to incomplete data on all linkage criteria)
+    result = Vector{Int}[]
+    for maximalclique in mc
+        length(maximalclique) == 1 && in(maximalclique[1], vertices_to_remove) && continue
+        push!(result, maximalclique)
+    end
+    result
 end
 
 "Returns: true if the spine candidate satisifies the data row on the criteria defined by the fuzzymatches."
