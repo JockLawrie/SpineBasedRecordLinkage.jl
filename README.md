@@ -11,7 +11,7 @@ Spine-based record linkage in Julia.
 - An __entity__ is the unit of interest. It is usually a person, but may be something else such as a business enterprise.
 
 - A __event__ involving an entity may be a sale, a hospital admission, an arrest, a mortgage payment, and so on.
-  In some contexts, such as healthcare, events are known as episodes or encounters.
+  In some contexts, such as healthcare, events are often known as episodes or encounters.
   In others, such as sales, events are transactions.
 
 - __Record linkage__ is, at its core, the problem of determining whether two records refer to the same entity.
@@ -26,7 +26,7 @@ This package provides 2 functions:
 
 1. `construct_spine` is used to construct a spine from a given table.
 
-2. `run_linkage` is used to link several tables to the spine.
+2. `run_linkage` is used to link one or more tables to the spine.
 
 Both operations are configured in YAML files and run as scripts, so that users needn't write any Julia code.
 
@@ -53,9 +53,9 @@ criteria:
     - {tablename: table2, exactmatch:  {firstname: First_Name, middlename: Middle_Name, surname: Last_Name, birthdate: DOB}}
 ```
 
-In this example we have:
+In this example configuration we have:
 
-- A project name and a directory that will contain the output. See the __Run Linkage__ section below for details on how these 2 fields are utilised.
+- A project name and a directory that will contain the output. See the __Run linkage__ section below for details on how these 2 fields are utilised.
 - A pre-existing spine located at `/path/to/spine.tsv`.
   - See below for how to construct a spine if you don't already have one.
   - The spine is a _tab-separated values_ file, which indicated by the `tsv` extension.
@@ -112,7 +112,19 @@ __Notes on exact matches__
 
 ### Run linkage
 
-Once you have a spine and your config is set up, you can run the linkage with the following code:
+Once you have a spine and your config is set up, you can run the following script from the command line on Linux or Mac:
+
+```bash
+$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/linkage_config.yaml
+```
+
+If you're on Windows you can run this from PowerShell:
+
+```bash
+PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\linkage_config.yaml
+```
+
+Alternatively you can run the following code:
 
 ```julia
 using SpineBasedRecordLinkage
@@ -120,21 +132,13 @@ using SpineBasedRecordLinkage
 run_linkage("/path/to/linkage_config.yaml")
 ```
 
-Alternatively you can run the following script from the command line on Linux or Mac:
-
-```bash
-$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/linkage_config.yaml
-```
-
-Or using Windows PowerShell:
-
-```bash
-PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\linkage_config.yaml
-```
+### Inspect the results
 
 When you run the above the following happens:
 
-1. A new directory is created which will contain all output. Its name has the form: `{output_directory}/linkage-{projectname}-{timestamp}`
+1. A new directory is created which will contain all output.
+
+   Its name has the form: `{output_directory}/linkage-{projectname}-{timestamp}`
 2. The directory contains `input` and `output` directories.
 3. The `input` directory contains a copy of the config file and a file containing the versions of Julia and this package.
 4. The output directory contins `identified` and `deidentified` directories.
@@ -144,9 +148,38 @@ When you run the above the following happens:
 
 ## Constructing a spine
 
-## Interrogating the results
+A spine can be constructed using the `construct_spine` function, which links a table to itself then removes duplicate links.
+Therefore a configuration file for spine construction has the same format as a configuration file for linkage,
+with the following constraints:
 
+1. There is only 1 table to be linked to the spine.
+2. The data files for the spine and the table are the same.
+3. The schema files for the spine and the table are the same.
 
+For example, the following configuration file is suitable for spine construction:
+
+```yaml
+projectname: myproject
+output_directory:  "/path/to/linkage/output"
+spine: {datafile: "/path/to/mytable.tsv", schemafile: "/path/to/mytable_schema.yaml"}
+tables:
+    mytable: {datafile: "/path/to/mytable.tsv", schemafile: "/path/to/mytable_schema.yaml"}
+criteria:
+    - {tablename: mytable, exactmatch:  {firstname: First_Name, lastname: Last_Name, birthdate: DOB}}
+    - {tablename: mytable, exactmatch:  {birthdate: DOB},
+                           approxmatch: [{datacolumn: firstname, spinecolumn: First_Name, distancemetric: levenshtein, threshold: 0.2},
+                                         {datacolumn: lastname,  spinecolumn: Last_Name,  distancemetric: levenshtein, threshold: 0.2}]}
+```
+
+To evaluate the results:
+
+1. Copy the configuration file that you used for spine construction.
+2. Replace the spine data file with the location of the result of the spine construction process, namely:
+
+   `{output_directory}/spineconstruction-{projectname}-{timestamp}/output/spine.tsv`
+
+3. Run the linkage script with the modified configuration file.
+4. Inspect the results as described above.
 
 ## Tips for users
 
