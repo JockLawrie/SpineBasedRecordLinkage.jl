@@ -20,7 +20,6 @@ Spine-based record linkage in Julia.
   - __Cluster-based linkage__: Records from the various data sets are clustered according to their content.
   - __Spine-based linkage__:   Records are linked one at a time to a __spine__ - a table in which each record specifies an entity.
 
-
 ## Usage
 
 This package provides 2 functions:
@@ -30,16 +29,6 @@ This package provides 2 functions:
 2. `run_linkage` is used to link several tables to the spine.
 
 Both operations are configured in YAML files and run as scripts, so that users needn't write any Julia code.
-
-__Notes__:
-
-- The spine is currently required to fit into memory, though the tables to be linked to the spine can be arbitrarily large.
-  For example, the package has been tested with files up to 60 million records.
-- For performance this package only compares string values.
-  Therefore it is important that data be formatted correctly before linkage, and before spine construction if you don't already have a spine.
-  For example, dates should have a common format in all tables, invalid values should be removed, etc.
-  Using the [Schemata.jl](https://github.com/JockLawrie/Schemata.jl) package is strongly recommended for this purpose,
-  as it is easy to use and you can reuse the schema files for spine construction and linkage.
 
 ## Linkage
 
@@ -79,7 +68,8 @@ In this example we have:
   - The names are arbitrary.
   - The locations of each table's data file and schema file are specified in the same way as those of the spine. 
 - A list of linkage criteria.
-  - The list is processed in sequence.
+  - The list is processed in sequence, so that multiple sets of criteria can be compared to the same table in a specified order.
+    For example, you can match on name and birth date, then on name and address.
   - Each element of the list is a set of criteria.
   - For each set of criteria:
     - The rows of the specified table are iterated over and the criteria are checked.
@@ -88,18 +78,19 @@ In this example we have:
     - The 1st iteration will loop through the rows of `table1`.
       - A row is linked to a row in the spine if the values of `firstname`, `lastname` and `birthdate` in the row __exactly__ match the values of `First_Name`, `Last_Name` and `DOB` respectively in the spine row.
       - This scenario is equvialent to a SQL join, but does not require `table1` to fit into memory.
-      - If the rows of `table1` specify events (instead of entities - see above), several rows in `table1` may link to a given spine row.
+      - If the rows of `table1` specify events (instead of entities - see above), several rows in `table1` may link to a given spine row,
+        though any given row can only link to 1 row in the spine.
     - The 2nd iteration requires an exact match for `birthdate` and approximate matches for `firstname` and `lastname`.
       Specifically, this iteration will match a row from `table1` to a row in the spine if:
       - The 2 rows match exactly on birth date.
       - The Levenshtein distance (see the notes below) between the first names in the 2 rows is no more than 0.2, and ditto for the last names.
     - The 3rd iteration iterates through the rows of `table2` and requires exact matches on first name, middle name, last name and birth date.
-      
+
 __Notes on approximate matches__
 
 - Approximate matching relies on _edit distances_, which measure how different 2 strings are.
 - In this package edit distances are scaled to be between 0 and 1, where 0 denotes an exact match (no difference) and 1 denotes complete difference.
-- The distance between a missing value and anothr value (missing or not) is defined to be 1 (complete difference).
+- The distance between a missing value and another value (missing or not) is defined to be 1 (complete difference).
 - The Levenshtein distance in our example is an example of an edit distance.
 - For example:
   - `Levenshtein("robert", "robert") = 0`
@@ -109,18 +100,27 @@ __Notes on approximate matches__
   - `Levenshtein("rob",    "tim") = 1`
   - `Levenshtein("rob",    missing) = 1`
 - There are several edit distance measures available, see [StringDistances.jl](https://github.com/matthieugomez/StringDistances.jl) for other possibilities.
+- If approximate matching criteria are specified and several rows in the spine satisfy the criteria for a given data row,
+  then the best matching spine row is selected as the match for the data row.
+- The best match is the spine row with the lowest total distance from the data row.
 
-### Run Linkage
+__Notes on exact matches__
 
-You can then run the linkage with the following code:
+- The notion of distance introduced above implies that a pair of values that match exactly have a distance between them of 0. For example, `Levenshtein(value1, value2) = 0`.
+- Similalrly, a missing value cannot be part of an exact match because it has distance 1 from any other value. For example, `Levenshtein(value1, missing) = 1`.
+- If no approximate matching criteria are specified then a record can only be linked to the spine if there is exactly 1 candidate match in the spine.
+
+### Run linkage
+
+Once you have a spine and your config is set up, you can run the linkage with the following code:
 
 ```julia
 using SpineBasedRecordLinkage
 
-run_linkage("linkage_config.yaml")
+run_linkage("/path/to/linkage_config.yaml")
 ```
 
-Alternatively you can run the following script on Linux or Mac:
+Alternatively you can run the following script from the command line on Linux or Mac:
 
 ```bash
 $ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/linkage_config.yaml
@@ -132,7 +132,7 @@ Or using Windows PowerShell:
 PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\linkage_config.yaml
 ```
 
-When you run the script or `run_linkage("linkage_config.yaml")`, the following happens:
+When you run the above the following happens:
 
 1. A new directory is created which will contain all output. Its name has the form: `{output_directory}/linkage-{projectname}-{timestamp}`
 2. The directory contains `input` and `output` directories.
@@ -144,69 +144,21 @@ When you run the script or `run_linkage("linkage_config.yaml")`, the following h
 
 ## Constructing a spine
 
-
-## Methodology
-
-3. An entity is identified by a set of fields. For example, a person can be identified by his/her name, birth date, address, etc.
-
-4. An entity's identifying information may change over time, though the entity remains the same. For example, a person may change his/her address.
-
-5. Records that specify the entities of interest are stored in a table in which:
-   - Each row represents an entity for a specified time period.
-   - The schema is defined using the `Schemata.jl` package.
-   - The required columns are: `recordid`, `entityid`, `recordstartdate`
-   - There are other columns that identify an entity, such as name, birth date, etc.
-   - Entities can have multiple records.
-   - Entities with multiple records will have the same `entityid`.
-   - Therefore the primary key of the table is [`entityid`, `recordstartdate`]
-   - This package sets `recordid = base64encode(hash(vals...))"`, where vals are the values of all columns other than `entityid` and `recordstartdate`.
+## Interrogating the results
 
 
-config specifies locations of linkmaps.
-if the linkmap files don't exist, the package will init them.
-linkmaps are never overwritten. This forces the user to remove the linkmaps manually if s/he wants to overwrite them.
 
+## Tips for users
 
-When writing output, create a new directory using the run's timestamp. Do not overwrite any input! 
-
-- Tips for users:
-  - When specifying the project name in the config, make it recognisable, such as rq452.
-  - For each data table, if last_updated column exists, include it in the primary key.
-  - Governance (i.e., versioning) of the spine and the input data tables is the responsibility of the user.
-    - It is out of the scope of the linkage engine.
-    - Users must ensure that the spine and data used in a linkage run is preserved without any changes. Otherwise the linkage run may not be reproducible.
-
-2. A persistent linkage map is initialised.
-   Each row defines a match between a record in the `Person` table and a record in another table of interest.
-   - The columns are: `tablename`, `tablerecordid`, `personrecordid`.
-   - Note that this table implicitly defines matches between records of different tables of interest.
-     That is, 2 records from different tables that link to the same record in the `Person` table are implicitly matched.
-   - The linkage map also avoids the need to rerun the linkage algorithm on historical data, thus yielding faster linkage on new data.
-
-3. Ensure that each table to be linked to the `Person` table has a `recordid` column with unique values and no missing values.
-
-4. A linkage pipeline has the following stages:
-   - Pre-processing: Transforming the input data into the standardised formats present in the `Person` table.
-   - Linkage:        For each table in your data set, try to match each record to a record in the `Person` table. The results are recorded in the linkage map.
-   - Reporting:      Summarise the results of the linkage run, including how many records were matched and how.
-
-5. The `linkage` stage consists of an ordered sequence of _linkage passes_.
-   Each linkage pass specifies:
-   - The name of the table to be linked.
-   - The set of columns on which both records in a matched pair must match exactly.
-   - A set of fuzzy match criteria.
-
-   Note that multiple linkage passes can be made against the same table. For example, you can match on name and birth date, then on name and address.
-
-6. Each fuzzy match criterion must specify:
-   - The pair of columns being compared (1 in the data table and 1 in the `Person` table).
-   - A distance metric, which quantifies how "close" the pair of values is.
-   - A threshold, below which the pair of values is considered sufficiently close.
-
-7. If no fuzzy matching criteria are specified then a record can only be linked to the `Person` table if there is exactly 1 candidate match in the `Person` table.
-
-8. If fuzzy matching criteria are specified and there are several candidate matches in the `Person` table, then:
-   - For each candidate record an overall distance between it and the data record is calculated.
-     This distance is calculated as the sum of the individual column distances specified by the fuzzy match criteria.
-   - The best candidate is that with the smallest distance from the data record.
-     This is deemed the matching record.
+- The spine is currently required to fit into memory, though the tables to be linked to the spine can be arbitrarily large.
+  For example, the package has been tested with files up to 60 million records.
+- For performance this package only compares string values.
+  Therefore it is important that data be formatted correctly before linkage, and before spine construction if you don't already have a spine.
+  For example, dates should have a common format in all tables, invalid values should be removed, etc.
+  Using the [Schemata.jl](https://github.com/JockLawrie/Schemata.jl) package is strongly recommended for this purpose,
+  as it is easy to use and you can reuse the schema files for spine construction and linkage.
+- When specifying the project name in the config, make it easily recognisable.
+- For each data table, if a `last_updated` column exists, include it in the primary key.
+- Governance (i.e., versioning) of the input tables is the responsibility of the user.
+  - It is out of the scope of the linkage engine.
+  - Users must ensure that the spine and data used in a linkage run is preserved without any changes. Otherwise the linkage run may not be reproducible.
