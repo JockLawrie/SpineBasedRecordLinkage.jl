@@ -1,6 +1,6 @@
 module config
 
-export LinkageConfig, LinkageIteration, FuzzyMatch, spine_construction_config
+export LinkageConfig, LinkageCriteria, ApproxMatch, spine_construction_config
 
 using Dates
 using Schemata
@@ -30,9 +30,9 @@ end
 ################################################################################
 
 """
-A FuzzyMatch specifies how a column in a data table can be compared to a column in the spine in an inexact manner.
+An ApproxMatch specifies how a column in a data table can be compared to a column in the spine in an inexact (approximate) manner.
 The comparison between two values, one from each column, is quantified as a distance between them.
-A user-specified upper threshold is used to determine whether the 2 values are sufficiently similar (distance sufficianetly small).
+A user-specified upper threshold is used to determine whether the 2 values are sufficiently similar (distance sufficiently small).
 If so, the 2 values are deemed to match.
 
 datacolumn: Data column name
@@ -40,49 +40,50 @@ spinecolumn: Spine column name
 distancemetric: Name of distance metric
 threshold: Acceptable upper bound on distance
 """
-struct FuzzyMatch
+struct ApproxMatch
     datacolumn::Symbol
     spinecolumn::Symbol
     distancemetric::Symbol
     threshold::Float64
 
-    function FuzzyMatch(datacol, spinecol, distancemetric, threshold)
+    function ApproxMatch(datacolname, spinecolname, distancemetric, threshold)
         ((threshold <= 0.0) || (threshold >= 1.0)) && error("Distance threshold must be between 0 and 1 (excluding 0 and 1).")
         if !haskey(distances.metrics, distancemetric)
             allowed_metrics = sort!(collect(keys(distances.metrics)))
             msg = "Unknown distance metric in fuzzy match criterion: $(distancemetric).\nMust be one of: $(allowed_metrics)"
             error(msg)
         end
-        new(datacol, spinecol, distancemetric, threshold)
+        new(datacolname, spinecolname, distancemetric, threshold)
     end
 end
 
-function FuzzyMatch(d::Dict)
-    datacol, spinecol = Symbol.(d["columns"])
-    distancemetric    = Symbol(d["distancemetric"])
-    threshold         = d["threshold"]
-    FuzzyMatch(datacol, spinecol, distancemetric, threshold)
+function ApproxMatch(d::Dict)
+    datacolname    = Symbol.(d["datacolumn"])
+    spinecolname   = Symbol.(d["spinecolumn"])
+    distancemetric = Symbol(d["distancemetric"])
+    threshold      = d["threshold"]
+    ApproxMatch(datacolname, spinecolname, distancemetric, threshold)
 end
 
 ################################################################################
 
 """
 tablename: Name of table to be linked to the spine.
-exactmatchcols: Dict of data_column_name => spine_column_name
-fuzzymatches::Vector{FuzzyMatch}
+exactmatch: Dict(data_column_name => spine_column_name, ...)
+approxmatch::Vector{ApproxMatch}
 """
-struct LinkageIteration
+struct LinkageCriteria
     id::Int
     tablename::String
-    exactmatchcols::Dict{Symbol, Symbol}
-    fuzzymatches::Vector{FuzzyMatch}
+    exactmatch::Dict{Symbol, Symbol}
+    approxmatch::Vector{ApproxMatch}
 end
 
-function LinkageIteration(id::Int, d::Dict)
-    tablename      = d["tablename"]
-    exactmatchcols = Dict(Symbol(k) => Symbol(v) for (k, v) in d["exactmatch_columns"])
-    fuzzymatches   = haskey(d, "fuzzymatches") ? [FuzzyMatch(fmspec) for fmspec in d["fuzzymatches"]] : FuzzyMatch[]
-    LinkageIteration(id, tablename, exactmatchcols, fuzzymatches)
+function LinkageCriteria(id::Int, d::Dict)
+    tablename   = d["tablename"]
+    exactmatch  = Dict(Symbol(k) => Symbol(v) for (k, v) in d["exactmatch"])
+    approxmatch = haskey(d, "approxmatch") ? [ApproxMatch(amspec) for amspec in d["approxmatch"]] : ApproxMatch[]
+    LinkageCriteria(id, tablename, exactmatch, approxmatch)
 end
 
 ################################################################################
@@ -91,13 +92,13 @@ end
 output_directory: A directory created specifically for the linkage run. It contains all output.
 spine:            TableConfig for the spine.
 tables:           Dict of (tablename, TableConfig) pairs, with 1 pair for each data table.
-iterations:       Vector{Vector{LinkageIteration}}, where iterations[i] = [iterations for a table i].
+criteria:         Vector{Vector{LinkageCriteria}}, where criteria[i] = [criteria for a table i].
 """
 struct LinkageConfig
     output_directory::String
     spine::TableConfig
     tables::Dict{String, TableConfig}
-    iterations::Vector{Vector{LinkageIteration}}  # iterations[i] = [iterations for a table i]
+    criteria::Vector{Vector{LinkageCriteria}}  # iterations[i] = [iterations for a table i]
 end
 
 function LinkageConfig(configfile::String)
@@ -116,20 +117,20 @@ function LinkageConfig(d::Dict, purpose::String)
     tables = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
     length(spine.schema.primarykey) > 1 && error("The spine's primary key has more than 1 column. For computational efficiency please use a primary key with 1 column.")
 
-    # Iterations: retains original order but grouped by tablename for computational convenience
-    iterations    = Vector{LinkageIteration}[]
-    iterationid   = 0
+    # Criteria: retains original order but grouped by tablename for computational convenience
+    criteria      = Vector{LinkageCriteria}[]
+    criterionid   = 0
     tablename2idx = Dict{String, Int}()
-    for x in d["iterations"]
+    for x in d["criteria"]
         tablename = x["tablename"]
         if !haskey(tablename2idx, tablename)
-            push!(iterations, LinkageIteration[])
-            tablename2idx[tablename] = size(iterations, 1)
+            push!(criteria, LinkageCriteria[])
+            tablename2idx[tablename] = size(criteria, 1)
         end
-        iterationid += 1
-        push!(iterations[tablename2idx[tablename]], LinkageIteration(iterationid, x))
+        criterionid += 1
+        push!(criteria[tablename2idx[tablename]], LinkageCriteria(criterionid, x))
     end
-    LinkageConfig(outdir, spine, tables, iterations)
+    LinkageConfig(outdir, spine, tables, criteria)
 end
 
 """

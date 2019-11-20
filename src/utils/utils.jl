@@ -33,12 +33,12 @@ function construct_software_versions_table()
 end
 
 function construct_iterations_table(cfg::LinkageConfig)
-    colnames = (:IterationID, :TableName, :ExactMatches, :FuzzyMatches)
-    coltypes = Tuple{Int, String, Dict{Symbol, Symbol}, Vector{FuzzyMatch}}
+    colnames = (:CriteriaID, :TableName, :ExactMatches, :ApproxMatches)
+    coltypes = Tuple{Int, String, Dict{Symbol, Symbol}, Vector{ApproxMatch}}
     result   = NamedTuple{colnames, coltypes}[]
-    for v in cfg.iterations
+    for v in cfg.criteria
         for x in v
-            r = (IterationID=x.id, TableName=x.tablename, ExactMatches=x.exactmatchcols, FuzzyMatches=x.fuzzymatches)
+            r = (CriteriaID=x.id, TableName=x.tablename, ExactMatches=x.exactmatch, ApproxMatches=x.approxmatch)
             push!(result, r)
         end
     end
@@ -53,29 +53,29 @@ function append_spineid!(spine::DataFrame, primarykey::Vector{Symbol})
     end
 end
 
-"Returns: Dict(iterationid => TableIndex(spine, colnames))"
-function construct_table_indexes(iterations::Vector{LinkageIteration}, spine)
+"Returns: Dict(criteriaid => TableIndex(spine, colnames))"
+function construct_table_indexes(criteria::Vector{LinkageCriteria}, spine)
     # Create TableIndexes
     tmp = Dict{Int, TableIndex}()
-    for iteration in iterations
-        colnames = [spine_colname for (data_colname, spine_colname) in iteration.exactmatchcols]
-        tmp[iteration.id] = TableIndex(spine, colnames)
+    for linkagecriteria in criteria
+        colnames = [spine_colname for (data_colname, spine_colname) in linkagecriteria.exactmatch]
+        tmp[linkagecriteria.id] = TableIndex(spine, colnames)
     end
 
     # Replace spine colnames with data colnames
     # A hack to avoid converting from spine colnames to data colnames on each lookup
     result = Dict{Int, TableIndex}()
-    for iteration in iterations
-        data_colnames = [data_colname for (data_colname, spine_colname) in iteration.exactmatchcols]
-        tableindex    = tmp[iteration.id]
-        result[iteration.id] = TableIndex(spine, data_colnames, tableindex.index)
+    for linkagecriteria in criteria
+        data_colnames = [data_colname for (data_colname, spine_colname) in linkagecriteria.exactmatch]
+        tableindex    = tmp[linkagecriteria.id]
+        result[linkagecriteria.id] = TableIndex(spine, data_colnames, tableindex.index)
     end
     result
 end
 
 "Returns: true if row[colnames] includes a missing value."
 function constructkey!(result::Vector{String}, row, colnames::Vector{Symbol})
-    for (j, colname) in enumerate(colnames)  # Populate result with the row's values of tableindex.colnames (iteration.exactmatchcols)
+    for (j, colname) in enumerate(colnames)  # Populate result with the row's values of tableindex.colnames (iteration.exactmatches)
         val = getproperty(row, colname)
         ismissing(val) && return true
         result[j] = val
