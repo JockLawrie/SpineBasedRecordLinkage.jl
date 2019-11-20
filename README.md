@@ -134,17 +134,28 @@ run_linkage("/path/to/linkage_config.yaml")
 
 ### Inspect the results
 
-When you run the above the following happens:
+The results of `run_linkage` are structured as follows:
 
 1. A new directory is created which will contain all output.
 
    Its name has the form: `{output_directory}/linkage-{projectname}-{timestamp}`
 2. The directory contains `input` and `output` directories.
 3. The `input` directory contains a copy of the config file and a file containing the versions of Julia and this package.
-4. The output directory contins `identified` and `deidentified` directories.
-
-
-
+   The spine and data tables are not copied to the `input` directory because they may be very large and take a long time.
+4. The `output` directory contains the information necessary to inspect the linkage results and construct linked content data.
+   It contains the following files:
+   - A `criteria.tsv` table, in which each row specifies a linkage criterion.
+   - A `spine_simplified.tsv` file, containing only a `spineID` column and the columns of the spine's primary key (as specified in the schema used in the linkage configuration).
+   - Simplified data tables. Each simplified table contains:
+     - A `spineID` column which links the table to the spine.
+     - The table's primary key columns, which enable the construction of linked content data.
+     - A `criteriaID` column that links to the `criteria.tsv` file, so that we can see what criteria werre satisfied for each link.
+5. The tables of the `output` directory can be read into a BI reporting tool for easy interrogation visualisation.
+   We can then easily answer questions like:
+   - How many links were made?
+   - What links have remained unchaneged since the last run?
+   - What links are new? Broken? Intact but now satisfying different criteria?
+   - How many records remain unlinked? And which ones are they?
 
 ## Constructing a spine
 
