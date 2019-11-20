@@ -14,7 +14,7 @@ using ..config
 using ..utils
 
 function run_linkage(configfile::String)
-    @info "$(now()) Configuring linkage run"
+    @info "$(now()) Configuring linkage"
     cfg = LinkageConfig(configfile)
 
     @info "$(now()) Initialising output directory: $(cfg.output_directory)"
@@ -22,132 +22,101 @@ function run_linkage(configfile::String)
     mkdir(d)
     mkdir(joinpath(d, "input"))
     mkdir(joinpath(d, "output"))
-    mkdir(joinpath(d, "output", "deidentified"))
-    mkdir(joinpath(d, "output", "identified"))
     cp(configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
     software_versions = utils.construct_software_versions_table()
     CSV.write(joinpath(d, "input", "SoftwareVersions.csv"), software_versions; delim=',')      # Write software_versions to d/input
-    iterations = utils.construct_iterations_table(cfg)
-    CSV.write(joinpath(d, "output", "deidentified", "Iterations.csv"), iterations; delim=',')  # Write iterations to d/output
+    criteria = utils.construct_criteria_table(cfg)
+    CSV.write(joinpath(d, "output", "criteria.tsv"), criteria; delim='\t')  # Write criteria to d/output
 
     @info "$(now()) Importing spine"
-    spine = DataFrame(CSV.File(cfg.spine.datafile; type=String))    # We only compare Strings...avoids parsing values
+    spine = DataFrame(CSV.File(cfg.spine.datafile; type=String))  # For performance only Strings are compared (avoids parsing values)
 
-    @info "$(now()) Appending spineid to spine"
+    @info "$(now()) Appending spineID to spine"
     utils.append_spineid!(spine, cfg.spine.schema.primarykey)
 
-    @info "$(now()) Writing spine_identified.tsv to disk"
-    CSV.write(joinpath(cfg.output_directory, "output", "identified", "spine_identified.tsv"), spine[!, vcat(:spineid, cfg.spine.schema.primarykey)]; delim='\t')
+    @info "$(now()) Writing spine_linked.tsv to the output directory"
+    CSV.write(joinpath(cfg.output_directory, "output", "spine_linked.tsv"), spine[!, vcat(:spineID, cfg.spine.schema.primarykey)]; delim='\t')
 
-    @info "$(now()) Writing spine_deidentified.tsv to disk for reporting"
-    spine_deidentified = DataFrame(spineid = spine[!, :spineid])
-    CSV.write(joinpath(cfg.output_directory, "output", "deidentified", "spine_deidentified.tsv"), spine_deidentified; delim='\t')
-
-    # Replace the spine's primary key with [:spineid]
+    # Replace the spine's primary key with [:spineID]
     empty!(cfg.spine.schema.primarykey)
-    push!(cfg.spine.schema.primarykey, :spineid)
+    push!(cfg.spine.schema.primarykey, :spineID)
 
-    # Do the linkage
-    linktables(cfg, spine)
+    # Do the linkage for each table
+    for tablecriteria in cfg.criteria
+        # Create an empty output file for the data and store it in the output directory
+        tablename = tablecriteria[1].tablename
+        @info "$(now()) Starting linkage for table $(tablename)"
+        tableschema   = cfg.tables[tablename].schema
+        data          = init_data(tableschema, 0)  # Columns are [:spineID, :criteriaID, primarykey_columns...]
+        table_outfile = joinpath(cfg.output_directory, "output", "$(tablename)_linked.tsv")
+        CSV.write(table_outfile, data; delim='\t')
+
+        # Run the data through each linkage iteration
+        table_infile     = cfg.tables[tablename].datafile
+        criteriaid2index = utils.construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
+        criteriaid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
+        link_table_to_spine(spine, table_infile, table_outfile, tableschema, tablecriteria, criteriaid2index, criteriaid2key)
+    end
     @info "$(now()) Finished linkage"
 end
 
-function linktables(cfg::LinkageConfig, spine::DataFrame)
-    spineschema = cfg.spine.schema
-    linkmap     = DataFrame([UInt, UInt, Int], [:spineid, :recordid, :criteriaid], 0)
-    for tablecriteria in cfg.criteria
-        # Make an output directory for the table
-        tablename = tablecriteria[1].tablename
-        @info "$(now()) Starting linkage for table $(tablename)"
-
-        # Create an empty linkmap and store it in the output directory
-        linkmap_file = joinpath(cfg.output_directory, "output", "deidentified", "linkmap-$(tablename).tsv")
-        CSV.write(linkmap_file, linkmap; delim='\t')
-
-        # Create an empty output file for the data and store it in the output directory
-        tableschema   = cfg.tables[tablename].schema
-        data          = init_data(tableschema, 0)  # Columns are [:recordid, primarykey_columns...]
-        table_outfile = joinpath(cfg.output_directory, "output", "identified", "$(tablename).tsv")
-        CSV.write(table_outfile, data; delim='\t')
-
-        # Construct some convenient lookups for computational efficiency
-        criteriaid2index = utils.construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
-        criteriaid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
-
-        # Run the data through each iteration
-        table_infile = cfg.tables[tablename].datafile
-        linktable(spine, spineschema, table_infile, table_outfile, tableschema, linkmap_file, tablecriteria, criteriaid2index, criteriaid2key)
-    end
-end
-
-function linktable(spine::DataFrame, spineschema::TableSchema,
-                   table_infile::String, table_outfile::String, tableschema::TableSchema,
-                   linkmap_file::String,
-                   tablecriteria::Vector{LinkageCriteria}, criteriaid2index::Dict{Int, TableIndex}, criteriaid2key::Dict{Int, Vector{String}})
-    linkmap   = DataFrame([UInt, UInt, Int], [:spineid, :recordid, :criteriaid], 1_000_000)  # Process the data in batches of 1_000_000 rows
+function link_table_to_spine(spine::DataFrame,
+                            table_infile::String, table_outfile::String, tableschema::TableSchema,
+                            tablecriteria::Vector{LinkageCriteria}, criteriaid2index::Dict{Int, TableIndex}, criteriaid2key::Dict{Int, Vector{String}})
     data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
-    i_linkmap = 0
     i_data    = 0
-    nlinks    = 0
     ndata     = 0
+    nlinks    = 0
     tablename = tableschema.name
-    data_primarykey  = tableschema.primarykey
-    spine_primarykey = spineschema.primarykey[1]
+    data_primarykey = tableschema.primarykey
     for row in CSV.Rows(table_infile; reusebuffer=true)
-        # Store recordid and primary key
+        # Store primary key
         i_data += 1
         for colname in data_primarykey
             data[i_data, colname] = getproperty(row, colname)
         end
-        data[i_data, :recordid] = hash(data[i_data, 2:end])
 
         # Loop through each LinkageCriteria
-        for linkagecriteria in criteria
-            # Identify the best matching spine record (if it exists)
+        for linkagecriteria in tablecriteria
+            # Identify the spine records that satisfy the exactmatch criteria (if they exist)
             tableindex = criteriaid2index[linkagecriteria.id]
             hasmissing = utils.constructkey!(criteriaid2key[linkagecriteria.id], row, tableindex.colnames)
             hasmissing && continue                    # datarow[colnames] includes a missing value
             k = Tuple(criteriaid2key[linkagecriteria.id])
             !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on linkagecriteria.exactmatch
             candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy linkagecriteria.exactmatch
-            spineid = select_best_candidate(spine, spine_primarykey, candidate_indices, row, linkagecriteria.approxmatch)
+            isempty(candidate_indices) && continue    # There are no spine records that satisfy the exactmatch criteria
+
+            # Identify the best matching spine record (if it exists)
+            spineid = select_best_candidate(spine, candidate_indices, row, linkagecriteria.approxmatch)
             spineid == 0 && continue
 
             # Create a record in the linkmap
-            i_linkmap += 1
-            linkmap[i_linkmap, :spineid]    = spineid
-            linkmap[i_linkmap, :recordid]   = data[i_data, :recordid]
-            linkmap[i_linkmap, :criteriaid] = linkagecriteria.id
+            nlinks += 1
+            data[i_data, :spineID]    = spineid
+            data[i_data, :criteriaID] = linkagecriteria.id
             break  # Row has been linked, no need to link on other criteria
         end
 
         # If data is full, write to disk
         if i_data == 1_000_000
             CSV.write(table_outfile, data; delim='\t', append=true)
-            i_data = 0  # Reset the row number
-            ndata += 1_000_000
+            ndata += i_data
             @info "$(now()) Exported $(ndata) rows of table $(tablename)"
-        end
-
-        # If linkmap is full, write to disk
-        if i_linkmap == 1_000_000
-            nlinks    = write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
-            i_linkmap = 0  # Reset the row number
+            i_data = 0  # Reset the row number
         end
     end
-
-    # Write remaining rows if they exist
-    i_linkmap != 0 && write_linkmap_to_disk(linkmap_file, linkmap[1:i_linkmap, :], nlinks, tablename)
-    if i_data != 0
+    if i_data != 0  # Write remaining rows if they exist
         CSV.write(table_outfile, data[1:i_data, :]; append=true, delim='\t')
         ndata += i_data
         @info "$(now()) Exported $(ndata) rows of table $(tablename)"
     end
+    @info "$(now()) $(nlinks) rows of table $(tablename) were linked to the spine."
 end
 
-function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indices::Vector{Int}, row, approxmatches::Vector{ApproxMatch})
+function select_best_candidate(spine, candidate_indices::Vector{Int}, row, approxmatches::Vector{ApproxMatch})
     if isempty(approxmatches)
-        length(candidate_indices) == 1 && return spine[candidate_indices[1], spine_primarykey]  # There is 1 candidate and no further selection criteria to be met
+        length(candidate_indices) == 1 && return spine[candidate_indices[1], :spineID]  # There is 1 candidate and no further selection criteria to be met
         return 0  # There is more than 1 candidate and no way to select the best one
     end
     result = 0
@@ -169,22 +138,15 @@ function select_best_candidate(spine, spine_primarykey::Symbol, candidate_indice
         !ok && continue  # Not every FuzzyMatch criterion is satisfied
         dist >= min_distance && continue  # distance(row, candidate) is not minimal among candidates tested so far
         min_distance = dist
-        result = spine[i_spine, spine_primarykey]
+        result = spine[i_spine, :spineID]
     end
     result
 end
 
 function init_data(tableschema::TableSchema, n::Int)
-    colnames = vcat(:recordid, tableschema.primarykey)
-    coltypes = vcat(UInt, fill(Union{Missing, String}, length(tableschema.primarykey)))
+    colnames = vcat(:spineID, :criteriaID, tableschema.primarykey)
+    coltypes = vcat(Union{Missing, UInt}, Union{Missing, Int}, fill(Union{Missing, String}, length(tableschema.primarykey)))
     DataFrame(coltypes, colnames, n)
-end
-
-function write_linkmap_to_disk(linkmap_file, linkmap, nlinks, tablename)
-    nlinks += size(linkmap, 1)
-    CSV.write(linkmap_file, linkmap; delim='\t', append=true)
-    @info "$(now()) $(nlinks) links created between the spine and table $(tablename)"
-    nlinks
 end
 
 end

@@ -145,15 +145,17 @@ The results of `run_linkage` are structured as follows:
 4. The `output` directory contains the information necessary to inspect the linkage results and construct linked content data.
    It contains the following files:
    - A `criteria.tsv` table, in which each row specifies a linkage criterion.
-   - A `spine_simplified.tsv` file, containing only a `spineID` column and the columns of the spine's primary key (as specified in the schema used in the linkage configuration).
-   - Simplified data tables. Each simplified table contains:
+   - A `spine_linked.tsv` file, containing:
+     - A `spineID` column, which is a hash of the spine's primary key that is specified in the schema used in the linkage configuration.
+     - The columns of the spine's primary key.
+   - Linked data tables. Each linked table contains:
      - A `spineID` column which links the table to the spine.
      - The table's primary key columns, which enable the construction of linked content data.
-     - A `criteriaID` column that links to the `criteria.tsv` file, so that we can see what criteria werre satisfied for each link.
-5. The tables of the `output` directory can be read into a BI reporting tool for easy interrogation visualisation.
+     - A `criteriaID` column that links to the `criteria.tsv` file, so that we can see, for each link, which linkage criteria were satisfied.
+5. The tables of the `output` directory can be read into a BI reporting tool for easy interrogation and visualisation.
    We can then easily answer questions like:
-   - How many links were made?
-   - What links have remained unchaneged since the last run?
+   - How many links are there?
+   - What links have remained unchanged since the last run?
    - What links are new? Broken? Intact but now satisfying different criteria?
    - How many records remain unlinked? And which ones are they?
 

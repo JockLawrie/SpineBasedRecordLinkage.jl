@@ -32,13 +32,14 @@ function construct_software_versions_table()
     DataFrame(software=["Julia", "SpineBasedRecordLinkage.jl"], version=[VERSION, pkg_version])
 end
 
-function construct_iterations_table(cfg::LinkageConfig)
-    colnames = (:CriteriaID, :TableName, :ExactMatches, :ApproxMatches)
-    coltypes = Tuple{Int, String, Dict{Symbol, Symbol}, Vector{ApproxMatch}}
+function construct_criteria_table(cfg::LinkageConfig)
+    colnames = (:criteriaID, :TableName, :ExactMatches, :ApproxMatches)
+    coltypes = Tuple{Int, String, Dict{Symbol, Symbol}, Union{Missing, Vector{ApproxMatch}}}
     result   = NamedTuple{colnames, coltypes}[]
     for v in cfg.criteria
         for x in v
-            r = (CriteriaID=x.id, TableName=x.tablename, ExactMatches=x.exactmatch, ApproxMatches=x.approxmatch)
+            am = isempty(x.approxmatch) ? missing : x.approxmatch
+            r  = (criteriaID=x.id, TableName=x.tablename, ExactMatches=x.exactmatch, ApproxMatches=am)
             push!(result, r)
         end
     end
@@ -47,9 +48,9 @@ end
 
 function append_spineid!(spine::DataFrame, primarykey::Vector{Symbol})
     n = size(spine, 1)
-    spine[!, :spineid] = missings(UInt64, n)
+    spine[!, :spineID] = missings(UInt64, n)
     for i = 1:n
-        spine[i, :spineid] = hash(spine[i, primarykey])
+        spine[i, :spineID] = hash(spine[i, primarykey])
     end
 end
 
