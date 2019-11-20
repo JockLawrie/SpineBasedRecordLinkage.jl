@@ -33,7 +33,7 @@ Both operations are configured in YAML files and run as scripts, so that users n
 
 __Notes__:
 
-- The spine is _currently_ required to fit into memory, though the tables to be linked to the spine can be arbitrarily large.
+- The spine is currently required to fit into memory, though the tables to be linked to the spine can be arbitrarily large.
   For example, the package has been tested with files up to 60 million records.
 - For performance this package only compares string values.
   Therefore it is important that data be formatted correctly before linkage, and before spine construction if you don't already have a spine.
@@ -89,11 +89,11 @@ In this example we have:
       - A row is linked to a row in the spine if the values of `firstname`, `lastname` and `birthdate` in the row __exactly__ match the values of `First_Name`, `Last_Name` and `DOB` respectively in the spine row.
       - This scenario is equvialent to a SQL join, but does not require `table1` to fit into memory.
       - If the rows of `table1` specify events (instead of entities - see above), several rows in `table1` may link to a given spine row.
-    - The 2nd iteration requires exact matches for `lastname` and `DOB` and an approximate match for `firstname`.
+    - The 2nd iteration requires an exact match for `birthdate` and approximate matches for `firstname` and `lastname`.
       Specifically, this iteration will match a row from `table1` to a row in the spine if:
-      - The 2 rows match exactly on last name and birth date.
-      - The Levenshtein distance (see the notes below) between the first names in the 2 rows is no more than 0.2.
-    - The 3rd iteration itertes through the rows of `table2` and seeks exact matches on first name, middle name, last name and birth date.
+      - The 2 rows match exactly on birth date.
+      - The Levenshtein distance (see the notes below) between the first names in the 2 rows is no more than 0.2, and ditto for the last names.
+    - The 3rd iteration iterates through the rows of `table2` and requires exact matches on first name, middle name, last name and birth date.
       
 __Notes on approximate matches__
 
@@ -108,7 +108,7 @@ __Notes on approximate matches__
   - `Levenshtein("rob",    "bob") = 0.333`
   - `Levenshtein("rob",    "tim") = 1`
   - `Levenshtein("rob",    missing) = 1`
-- There are many edit distances available, see [StringDistances.jl](https://github.com/matthieugomez/StringDistances.jl) for other possibilities.
+- There are several edit distance measures available, see [StringDistances.jl](https://github.com/matthieugomez/StringDistances.jl) for other possibilities.
 
 ### Run Linkage
 
@@ -126,10 +126,10 @@ Alternatively you can run the following script on Linux or Mac:
 $ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/linkage_config.yaml
 ```
 
-Or using Windows Powershell:
+Or using Windows PowerShell:
 
 ```bash
-PS julia path\\to\\SpineBasedRecordLinkage.jl\\scripts\\run_linkage.jl path\\to\\linkage_config.yaml
+PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\linkage_config.yaml
 ```
 
 When you run the script or `run_linkage("linkage_config.yaml")`, the following happens:
@@ -210,89 +210,3 @@ When writing output, create a new directory using the run's timestamp. Do not ov
      This distance is calculated as the sum of the individual column distances specified by the fuzzy match criteria.
    - The best candidate is that with the smallest distance from the data record.
      This is deemed the matching record.
-
-
-## Example Usage
-
-
-```julia
-using RecordLinkage
-using YAML
-
-d = YAML.load_file("linkage_config.yaml")
-run_linkage(d)
-```
-
-Here is the config file, _myconfig.yaml_. Note that the `Person` table and the linkage map are defined using the [Schemata](https://github.com/JockLawrie/Schemata.jl) package.
-
-```
-#########################################################################################################
-# PIPELINE
-
-stages: [preprocessing, linkage]
-
-#########################################################################################################
-# PREPROCESSING
-
-preprocessing:
-    inputdir:  "/projects/recordlinkage/data/input"
-    outputdir: "/projects/recordlinkage/data/preprocessed"
-    datatables:
-        table1_raw: {infile: "table1.csv", outfile: "preprocessed_table1.tsv"}
-        table2_raw: {infile: "table2.csv", outfile: "preprocessed_table2.tsv"}
-
-#########################################################################################################
-# LINKAGE
-
-linkage:
-    inputdir:  "/projects/recordlinkage/data/preprocessed"
-    outputdir: "/projects/recordlinkage/data/linked"
-    datatables:
-        table1: "preprocessed_table1.tsv"
-        table2: "preprocessed_table2.tsv"
-    update_person_table: table1
-    linkage_passes:
-        - {tablename: table1, exactmatch_columns: [firstname, middlename, lastname, birthdate, gender, streetaddress, locality, postcode, state]}
-        - {tablename: table2, exactmatch_columns: [firstname, lastname, birthdate, gender]}
-        - {tablename: table2, exactmatch_columns: [firstname, lastname, birthdate]}
-        - {tablename: table2, exactmatch_columns: [birthdate, gender],
-                              fuzzymatches: [{columns: [firstname, firstname], distancemetric: levenshtein, threshold: 0.2},
-                                             {columns: [lastname,  lastname],  distancemetric: levenshtein, threshold: 0.2}]}
-
-#########################################################################################################
-# DEFINITION OF PERSON
-
-persontable:
-    name: person
-    description: Person table
-    primary_key: recordid
-    columns:
-        - recordid: {description: Record ID, datatype: String, categorical: false, required: true, unique: true,  validvalues: String}
-        - personid: {description: Person ID, datatype: Int,    categorical: false, required: true, unique: false, validvalues: Int}
-        - recordstartdate: {description: Date from which the record is valid,
-                            datatype: Date, categorical: false, required: false, unique: false, validvalues: Date}
-        - firstname:  {description: First name, datatype: String, categorical: false, required: false, unique: false, validvalues: String}
-        - middlename: {description: Middle name, datatype: String, categorical: false, required: false, unique: false, validvalues: String}
-        - lastname:   {description: Last name, datatype: String, categorical: false, required: false, unique: false, validvalues: String}
-        - birthdate:  {description: Birth date, datatype: Date, categorical: false, required: false, unique: false, validvalues: Date}
-        - deathdate:  {description: Date of death, datatype: Date, categorical: false, required: false, unique: false, validvalues: Date}
-        - gender:     {description: Gender, datatype: String, categorical: true, required: false, unique: false, validvalues: ["m", "f"]}
-        - streetaddress:  {description: "Street address (street name and number)",
-                           datatype: String, categorical: false, required: false, unique: false, validvalues: String}
-        - locality:       {description: "Locality (typically suburb)",
-                           datatype: String, categorical: false, required: false, unique: false, validvalues: String}
-        - postcode:       {description: Post code, datatype: Int, categorical: false, required: false, unique: false, validvalues: "1000:9999"}
-        - state:          {description: State, datatype: String,  categorical: true,  required: false, unique: false,
-                           validvalues: ["ACT", "NSW", "NT", "SA", "QLD", "TAS", "VIC", "WA"]}
-
-#########################################################################################################
-# DEFINITION OF LINKMAP
-
-linkmap:
-    name: linkmap
-    description: Linkage map
-    primary_key: [tablename, tablerecordid, personrecordid]
-    columns:
-        - tablerecordid:  {description: Record ID from data table,   datatype: String, categorical: false, required: true, unique: false, validvalues: String}
-        - personrecordid: {description: Record ID from person table, datatype: String, categorical: false, required: true, unique: false, validvalues: String}
-```
