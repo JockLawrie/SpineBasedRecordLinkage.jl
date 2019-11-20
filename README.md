@@ -136,9 +136,9 @@ run_linkage("/path/to/linkage_config.yaml")
 
 The results of `run_linkage` are structured as follows:
 
-1. A new directory is created which will contain all output.
+1. A new directory is created which will contain all output. Its name has the form:
 
-   Its name has the form: `{output_directory}/linkage-{projectname}-{timestamp}`
+   `{output_directory}/linkage-{projectname}-{timestamp}`
 2. The directory contains `input` and `output` directories.
 3. The `input` directory contains a copy of the config file and a file containing the versions of Julia and this package.
    The spine and data tables are not copied to the `input` directory because they may be very large and take a long time.
