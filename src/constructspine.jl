@@ -84,6 +84,7 @@ function construct_maximal_cliques(cfg::LinkageConfig, spine::DataFrame)
             hasmissing = utils.constructkey!(criteriaid2key[linkagecriteria.id], datarow, tableindex.colnames)
             hasmissing && continue                    # datarow[exactmatches] includes a missing value
             k = Tuple(criteriaid2key[linkagecriteria.id])
+            !haskey(tableindex.index, k) && continue
             candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy linkagecriteria.exactmatches
             for i_spine in candidate_indices
                 ok = candidate_satisfies_approximate_criteria(spine, i_spine, datarow, linkagecriteria.approxmatch)
