@@ -4,6 +4,7 @@ export compare_linkage_runs
 
 using CSV
 using DataFrames
+using Dates
 using Logging
 
 """
@@ -29,70 +30,38 @@ The statuses are:
 - existent:    The spine record exists in 1 linkage run but not the other.
 """
 function compare_linkage_runs(directory1::String, directory2::String, outfile::String)
-    # Construct Dict of results
-    d         = Dict{Tuple{String, String, String}, Int}()  # (tablename, status1, status2) => nrecords
+    @info "$(now()) Starting comparison of linkage runs."
+    dlm = get_delimiter(outfile)
+    write_table_report(Dict(("LINKAGE RUNS", directory1, directory2) => missing), outfile, dlm, false)
     outdir1   = joinpath(directory1, "output")
     outdir2   = joinpath(directory2, "output")
     filelist1 = [x for x in readdir(outdir1) if isfile(joinpath(outdir1, x))]
     filelist2 = [x for x in readdir(outdir2) if isfile(joinpath(outdir2, x))]
-    for filename in filelist1
+    filelist  = Set(vcat(filelist1, filelist1))
+    filelist  = sort!([x for x in filelist])
+    for filename in filelist
         filename == "criteria.tsv" && continue
         tablename = filename == "spine_primarykey_and_spineid.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
-        @info "Reporting results for table $(tablename)"
-        if in(filename, filelist2)
-            compare_tables!(d, filename, outdir1, outdir2)   # Table is in both linkage runs
+        @info "$(now()) Reporting results for table $(tablename)"
+        fullpath1 = joinpath(outdir1, filename)
+        fullpath2 = joinpath(outdir2, filename)
+        d         = Dict{Tuple{String, String, String}, Int}()  # (tablename, status1, status2) => nrecords
+        if tablename == "spine"
+            isfile(fullpath1)  && isfile(fullpath2)  && compare_spines!(d, fullpath1, fullpath2)
+            isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_spine!(d, fullpath1, 1)
+            !isfile(fullpath1) && isfile(fullpath2)  && report_solitary_spine!(d, fullpath2, 2)
         else
-            report_solitary_table!(d, filename, outdir1, 1)  # Table is only in the 1st linkage run
+            isfile(fullpath1)  && isfile(fullpath2)  && compare_nonspine_tables!(d, fullpath1, fullpath2, tablename)
+            isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_nonspine_table!(d, fullpath1, 1, tablename)
+            !isfile(fullpath1) && isfile(fullpath2)  && report_solitary_nonspine_table!(d, fullpath2, 2, tablename)
         end
+        write_table_report(d, outfile, dlm, true)
     end
-    for filename in filelist2
-        filename == "criteria.tsv" && continue
-        in(filename, filelist1)    && continue  # Already processed this table
-        tablename = filename == "spine_primarykey_and_spineid.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
-        @info "Reporting results for table $(tablename)"
-        report_solitary_table!(d, filename, outdir2, 2)  # Table is only in the 2nd linkage run
-    end
-
-    # Construct result from Dict
-    n = length(d) + 1  # +1 for the row ["LINKAGE RUNS", directory1, directory2, ""]
-    n == 0 && error("No results to report.")
-    i = 0
-    result = DataFrame([String, String, String, Union{Int, Missing}], [:tablename, :status1, :status2, :nrecords], n)
-    for (k, v) in d
-        i += 1
-        result[i, :tablename] = k[1]
-        result[i, :status1]   = k[2]
-        result[i, :status2]   = k[3]
-        result[i, :nrecords]  = v
-    end
-    result[n, :tablename] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    result[n, :status1]  = directory1
-    result[n, :status2]  = directory2
-    result[n, :nrecords] = missing
-    sort!(result, (:tablename, :status1, :status2))
-    result[1, :tablename] = "LINKAGE RUNS"
-
-    # Write result to outfile
-    ext = lowercase(splitext(outfile)[2])
-    ext = occursin(".", ext) ? replace(ext, "." => "") : "csv"
-    dlm = ext == "tsv" ? '\t' : ','
-    CSV.write(outfile, result; delim=dlm)
+    @info "$(now()) Finished comparison of linkage runs."
 end
 
 ################################################################################
 # Compare 2 existing tables.
-
-"""
-Modified: result.
-
-Compares outdir1/filename to outdir2/filename, where both files exist.
-"""
-function compare_tables!(result::Dict, filename::String, outdir1::String, outdir2::String)
-    tablename = filename == "spine_primarykey_and_spineid.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
-    fullpath1 = joinpath(outdir1, filename)
-    fullpath2 = joinpath(outdir2, filename)
-    tablename == "spine" ? compare_spines!(result, fullpath1, fullpath2) : compare_nonspine_tables!(result, fullpath1, fullpath2, tablename)
-end
 
 function compare_spines!(result::Dict, fullpath1::String, fullpath2::String)
     spineids1 = get_set_of_values(fullpath1, :spineID)
@@ -133,20 +102,6 @@ end
 ################################################################################
 # Report on a table that exists in only 1 linkage run.
 
-"""
-Modified: result.
-
-Reports on outdir/filename.
-The tablenamne is derived from filename.
-The specified status column (:statusX, where x == status_number) and the nrecords column are filled appropriately.
-The other status column is filled with "nonexistent".
-"""
-function report_solitary_table!(result::Dict{Tuple{String, String, String}, Int}, filename::String, outdir::String, status_number::Int)
-    fullpath  = joinpath(outdir, filename)
-    tablename = filename == "spine_primarykey_and_spineid.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
-    tablename == "spine" ? report_solitary_spine!(result, fullpath, status_number) : report_solitary_nonspine_table!(result, fullpath, status_number, tablename)
-end
-
 function report_solitary_spine!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int)
     tablename = "spine"
     for row in CSV.Rows(fullpath; reusebuffer=true)
@@ -156,6 +111,14 @@ function report_solitary_spine!(result::Dict{Tuple{String, String, String}, Int}
     end
 end
 
+"""
+Modified: result.
+
+Reports on outdir/filename.
+The tablenamne is derived from filename.
+The specified status column (:statusX, where x == status_number) and the nrecords column are filled appropriately.
+The other status column is filled with "nonexistent".
+"""
 function report_solitary_nonspine_table!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int, tablename::String)
     for row in CSV.Rows(fullpath; reusebuffer=true)
         criteriaID    = getproperty(row, :criteriaID)
@@ -222,6 +185,21 @@ function construct_recordid(row, pk_colnames::Vector{Symbol}, pk_values::Vector{
         pk_values[j] = getproperty(row, colname)
     end
     hash(pk_values)
+end
+
+function write_table_report(d::Dict, outfile::String, dlm::Char, apnd::Bool)
+    result = DataFrame([String, String, String, Union{Int, Missing}], [:tablename, :status1, :status2, :nrecords], 0)
+    for (k, v) in d
+        push!(result, (tablename=k[1], status1=k[2], status2=k[3], nrecords=v))
+    end
+    sort!(result, (:tablename, :status1, :status2))
+    CSV.write(outfile, result; delim=dlm, append=apnd)
+end
+
+function get_delimiter(filename::String)
+    ext = lowercase(splitext(filename)[2])
+    ext = occursin(".", ext) ? replace(ext, "." => "") : "csv"
+    ext == "tsv" ? '\t' : ','
 end
 
 end
