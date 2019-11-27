@@ -34,8 +34,8 @@ function run_linkage(configfile::String)
     @info "$(now()) Appending spineID to spine"
     utils.append_spineid!(spine, cfg.spine.schema.primarykey)
 
-    @info "$(now()) Writing spine_linked.tsv to the output directory"
-    CSV.write(joinpath(cfg.output_directory, "output", "spine_linked.tsv"), spine[!, vcat(:spineID, cfg.spine.schema.primarykey)]; delim='\t')
+    @info "$(now()) Writing spine_primarykey_and_spineid.tsv to the output directory"
+    CSV.write(joinpath(cfg.output_directory, "output", "spine_primarykey_and_spineid.tsv"), spine[!, vcat(:spineID, cfg.spine.schema.primarykey)]; delim='\t')
 
     # Replace the spine's primary key with [:spineID]
     empty!(cfg.spine.schema.primarykey)

@@ -37,7 +37,7 @@ function construct_spine(configfile::String)
     mc = construct_maximal_cliques(cfg, data)
 
     @info "$(now()) Constructing the spine from the linked rows."
-    spinerows = [rowindices[1] for rowindices in mc]  # Select the first row of each group for inclusion in the spine (arbitrary choice)
+    spinerows = [rowindices[1] for rowindices in mc]  # Reduce each group to 1 row by selecting the first row (arbitrary choice)
     spine     = data[spinerows, :]
     utils.append_spineid!(spine, cfg.spine.schema.primarykey)
 
