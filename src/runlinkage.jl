@@ -76,13 +76,14 @@ function link_table_to_spine(spine::DataFrame,
             data[i_data, colname] = getproperty(row, colname)
         end
 
-        # Loop through each LinkageCriteria
+        # Link the row to the spine using the first LinkageCriteria that are satisfied (if any)
         for linkagecriteria in tablecriteria
             # Identify the spine records that satisfy the exactmatch criteria (if they exist)
-            tableindex = criteriaid2index[linkagecriteria.id]
-            hasmissing = utils.constructkey!(criteriaid2key[linkagecriteria.id], row, tableindex.colnames)
+            criteriaid = linkagecriteria.id
+            tableindex = criteriaid2index[criteriaid]
+            hasmissing = utils.constructkey!(criteriaid2key[criteriaid], row, tableindex.colnames)
             hasmissing && continue                    # datarow[colnames] includes a missing value
-            k = Tuple(criteriaid2key[linkagecriteria.id])
+            k = Tuple(criteriaid2key[criteriaid])
             !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on linkagecriteria.exactmatch
             candidate_indices = tableindex.index[k]   # Indices of rows of the spine that satisfy linkagecriteria.exactmatch
             isempty(candidate_indices) && continue    # There are no spine records that satisfy the exactmatch criteria
@@ -94,7 +95,7 @@ function link_table_to_spine(spine::DataFrame,
             # Create a record in the linkmap
             nlinks += 1
             data[i_data, :spineID]    = spineid
-            data[i_data, :criteriaID] = linkagecriteria.id
+            data[i_data, :criteriaID] = criteriaid
             break  # Row has been linked, no need to link on other criteria
         end
 
@@ -123,7 +124,7 @@ function select_best_candidate(spine, candidate_indices::Vector{Int}, row, appro
     min_distance = 1.0
     for i_spine in candidate_indices
         dist = 0.0
-        ok   = true  # Each FuzzyMatch criterion is satisfied
+        ok   = true  # Each ApproxMatch criterion is satisfied
         for approxmatch in approxmatches
             dataval  = getproperty(row, approxmatch.datacolumn)
             spineval = spine[i_spine, approxmatch.spinecolumn]
@@ -135,7 +136,7 @@ function select_best_candidate(spine, candidate_indices::Vector{Int}, row, appro
                 break
             end
         end
-        !ok && continue  # Not every FuzzyMatch criterion is satisfied
+        !ok && continue  # Not every ApproxMatch criterion is satisfied
         dist >= min_distance && continue  # distance(row, candidate) is not minimal among candidates tested so far
         min_distance = dist
         result = spine[i_spine, :spineID]
