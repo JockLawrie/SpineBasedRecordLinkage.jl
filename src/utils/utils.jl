@@ -84,4 +84,10 @@ function constructkey!(result::Vector{String}, row, colnames::Vector{Symbol})
     false
 end
 
+function get_delimiter(filename::String)
+    ext = lowercase(splitext(filename)[2])
+    ext = occursin(".", ext) ? replace(ext, "." => "") : "csv"
+    ext == "tsv" ? '\t' : ','
+end
+
 end

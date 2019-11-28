@@ -7,6 +7,8 @@ using DataFrames
 using Dates
 using Logging
 
+using ..utils
+
 """
 Compares the results of the linkage runs in directory 1 and directory 2, and writes the comparison to outfile.
 
@@ -31,7 +33,7 @@ The statuses are:
 """
 function compare_linkage_runs(directory1::String, directory2::String, outfile::String)
     @info "$(now()) Starting comparison of linkage runs."
-    dlm = get_delimiter(outfile)
+    dlm = utils.get_delimiter(outfile)
     write_table_report(Dict(("LINKAGE RUNS", directory1, directory2) => missing), outfile, dlm, false)
     outdir1   = joinpath(directory1, "output")
     outdir2   = joinpath(directory2, "output")
@@ -194,12 +196,6 @@ function write_table_report(d::Dict, outfile::String, dlm::Char, apnd::Bool)
     end
     sort!(result, (:tablename, :status1, :status2))
     CSV.write(outfile, result; delim=dlm, append=apnd)
-end
-
-function get_delimiter(filename::String)
-    ext = lowercase(splitext(filename)[2])
-    ext = occursin(".", ext) ? replace(ext, "." => "") : "csv"
-    ext == "tsv" ? '\t' : ','
 end
 
 end
