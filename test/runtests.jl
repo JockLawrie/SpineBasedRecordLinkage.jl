@@ -5,14 +5,12 @@ using SpineBasedRecordLinkage
 construct_spine(joinpath("config", "construct_spine.yml"))
 
 # Clean up
-#=
 contents = readdir()
 for x in contents
     !isdir(x) && continue
-    if x[1:17] == "spineconstruction"
+    if length(x) > 17 && x[1:17] == "spineconstruction"
         rm(x, recursive=true)
-    elseif x[1:7] == "linkage"
+    elseif length(x) > 7 && x[1:7] == "linkage"
         rm(x, recursive=true)
     end
 end
-=#
