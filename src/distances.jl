@@ -2,9 +2,9 @@ module distances
 
 export distance
 
-using StringDistances  # Scales distance to [0, 1], with 1 being equality
+using StringDistances
 
-const metrics = Dict(:levenshtein => Levenshtein)
+const metrics = Dict(:hamming => Hamming, :jaro => Jaro, :dameraulevenshtein => DamerauLevenshtein, :levenshtein => Levenshtein, :ratcliffobershelp => RatcliffObershelp)
 
 """
 Returns: Distance between val1 and val2 as measured by the metric.
@@ -14,7 +14,7 @@ Distances are scaled to be in [0, 1], with 0 indicating that the values are equa
 function distance(metric::Symbol, val1, val2)
     ismissing(val1) && return 1.0
     ismissing(val2) && return 1.0
-    1.0 - compare(metrics[metric](), val1, val2)  # Scales distance to [0, 1], with 1 being equality
+    1.0 - compare(val1, val2, metrics[metric]())
 end
 
 end

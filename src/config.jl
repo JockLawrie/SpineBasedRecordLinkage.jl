@@ -115,7 +115,6 @@ function LinkageConfig(d::Dict, purpose::String)
     outdir = joinpath(d["output_directory"], "$(purpose)-$(d["projectname"])-$(dttm)")
     spine  = TableConfig("spine", d["spine"])
     tables = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
-    length(spine.schema.primarykey) > 1 && error("The spine's primary key has more than 1 column. For computational efficiency please use a primary key with 1 column.")
 
     # Criteria: retains original order but grouped by tablename for computational convenience
     criteria      = Vector{LinkageCriteria}[]
