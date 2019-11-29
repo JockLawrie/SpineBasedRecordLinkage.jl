@@ -1,0 +1,5 @@
+projectname: testing
+output_directory: ""
+spine: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
+tables:
+  emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}

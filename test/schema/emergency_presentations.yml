@@ -1,0 +1,12 @@
+name: emergency_presentations
+description: "Each row specifies a presentation at a hospital emergency department"
+primarykey: [hospitalid, campusid, presentationdate, patientid]
+columns:
+  - hospitalid:  {description: Hospital ID, datatype: Int,    iscategorical: false, isrequired: true, isunique: false, validvalues: "1:9999"}
+  - campusid:    {description: Campus ID,   datatype: Int,    iscategorical: false, isrequired: true, isunique: false, validvalues: "1:9999"}
+  - patientid:   {description: Patient ID,  datatype: Int,    iscategorical: false, isrequired: true, isunique: false, validvalues: Int}
+  - presentationdate: {description: Presentation date,  datatype: Date, iscategorical: false, isrequired: true, isunique: false, validvalues: Date}
+  - firstname:   {description: First name,  datatype: String, iscategorical: false, isrequired: false, isunique: false, validvalues: String}
+  - middlename:  {description: Middle name, datatype: String, iscategorical: false, isrequired: false, isunique: false, validvalues: String}
+  - lastname:    {description: Last name,   datatype: String, iscategorical: false, isrequired: false, isunique: false, validvalues: String}
+  - birthdate:   {description: Birth date,  datatype: Date,   iscategorical: false, isrequired: false, isunique: false, validvalues: Date}

@@ -1,0 +1,11 @@
+name: notifiable_disease_reports
+description: "Each row specifies report of a case of a notifiable disease"
+primarykey: reportid
+columns:
+  - reportid:   {description: Report ID, datatype: Int, iscategorical: false, isrequired: true, isunique: true, validvalues: Int}
+  - reportdate: {description: Date of admission, datatype: Date, iscategorical: false, isrequired: true, isunique: false, validvalues: Date}
+  - firstname:  {description: First name,  datatype: String, iscategorical: false, isrequired: false, isunique: false, validvalues: String}
+  - middlename: {description: Middle name, datatype: String, iscategorical: false, isrequired: false, isunique: false, validvalues: String}
+  - lastname:   {description: Last name,   datatype: String, iscategorical: false, isrequired: false, isunique: false, validvalues: String}
+  - birthdate:  {description: Birth date,  datatype: Date,   iscategorical: false, isrequired: false, isunique: false, validvalues: Date}
+  - patient_postcode: {description: Postcode of the patient's residential address, datatype: Int, iscategorical: false, isrequired: true, isunique: false, validvalues: "3000:3999"}

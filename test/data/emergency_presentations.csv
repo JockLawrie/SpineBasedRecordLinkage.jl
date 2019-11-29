@@ -1,6 +1,6 @@
-firstname,middlename,lastname,birthdate,presentationdate
-john,anthony,smith,13/12/60,02/11/18
-john,tony,smith,13/12/60,15/02/19
-john,,smithh,13/12/60,07/07/19
-robert,andrew,jones,29/04/88,30/04/19
-michelle,georgia,hudson,23/09/59,31/05/19
+patientid,firstname,middlename,lastname,birthdate,presentationdate,hospitalid,campusid
+1,john,anthony,smith,13/12/1960,2/11/2018,A,1
+1,john,tony,smith,13/12/1960,15/02/2019,A,1
+1,john,,smithh,13/12/1960,7/07/2019,B,2
+2,robert,andrew,jones,29/04/1988,30/04/2019,B,1
+1,michelle,georgia,hudson,23/09/1959,31/05/2019,C,1

@@ -22,7 +22,7 @@ Options:
 """
 function stack_tables(outfile::String, infiles...; replace_outfile::Bool=false, columns::Symbol=:intersection)
     @info "$(now()) Starting stack_tables"
-    run_checks(outfile, infiles...; replace_outfile, columns)
+    run_checks(outfile, replace_outfile, columns, infiles...)
     dlm      = utils.get_delimiter(outfile)
     colnames = get_colnames(columns, infiles)
     data     = DataFrame(fill(String, length(colnames)), colnames, 0)
@@ -70,7 +70,7 @@ end
 
 earlyexit(msg::String) = earlyexit([msg])
 
-function run_checks(outfile, infiles...; replace_outfile, columns)
+function run_checks(outfile, replace_outfile, columns, infiles...)
     msgs = String[]
     if columns != :intersection && columns != :union
         push!(msgs, "The keyword aargument columns must be either :intersection or :union.")
