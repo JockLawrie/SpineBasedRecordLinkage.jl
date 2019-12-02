@@ -9,6 +9,17 @@ using Schemata
 using ..TableIndexes
 using ..config
 
+function earlyexit(msgs::Vector{String})
+    isempty(msgs) && return
+    for msg in msgs
+        @error msg
+    end
+    @warn "Exiting early."
+    exit(1)
+end
+
+earlyexit(msg::String) = earlyexit([msg])
+
 function get_package_version()
     pkg_version = "unknown"
     srcdir = @__DIR__

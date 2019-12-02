@@ -9,7 +9,6 @@ using Logging
 
 using ..utils
 
-
 """
 Vertically stacks the tables specified by the filenames and stores the output in the specified output file.
 
@@ -59,21 +58,10 @@ function stack_tables(outfile::String, infiles...; replace_outfile::Bool=false, 
     @info "$(now()) Finished stack_tables"
 end
 
-function earlyexit(msgs::Vector{String})
-    isempty(msgs) && return
-    for msg in msgs
-        @error msg
-    end
-    @warn "Exiting stack_tables early."
-    exit(1)
-end
-
-earlyexit(msg::String) = earlyexit([msg])
-
 function run_checks(outfile, replace_outfile, columns, infiles...)
     msgs = String[]
     if columns != :intersection && columns != :union
-        push!(msgs, "The keyword aargument columns must be either :intersection or :union.")
+        push!(msgs, "The keyword argument columns must be either :intersection or :union.")
     end
     if isfile(outfile) && !replace_outfile
         msg = "The output file is not to be replaced.
@@ -88,7 +76,7 @@ function run_checks(outfile, replace_outfile, columns, infiles...)
     for filename in infiles
         !isfile(filename) && push!(msgs, "$(filename) is not a file. Skipping to next next file.")
     end
-    !isempty(msgs) && earlyexit(msgs)
+    !isempty(msgs) && utils.earlyexit(msgs)
 end
 
 function get_colnames(columns::Symbol, infiles)
@@ -100,7 +88,7 @@ function get_colnames(columns::Symbol, infiles)
             if isempty(colnames)
                 msg = "The input tables have no common columns. The result will have no columns.
                        Either reduce the number of input files or set the keyword argument column_intersection to false."
-                earlyexit(msg)
+                       utils.earlyexit(msg)
             end
         else  # columns == :union
             push!(colnames, csvrows.names)
