@@ -1,6 +1,6 @@
 name: hospital_admissions
 description: "Each row specifies an admission to a hospital"
-primarykey: [hospitalid, campusid, presentationdate, patientid]
+primarykey: [hospitalid, campusid, admissiondate, dischargedate, patientid]
 columns:
   - hospitalid:  {description: Hospital ID, datatype: Int,    iscategorical: false, isrequired: true, isunique: false, validvalues: "1:9999"}
   - campusid:    {description: Campus ID,   datatype: Int,    iscategorical: false, isrequired: true, isunique: false, validvalues: "1:9999"}

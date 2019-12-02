@@ -31,8 +31,12 @@ function run_linkage(configfile::String)
     @info "$(now()) Importing spine"
     spine = DataFrame(CSV.File(cfg.spine.datafile; type=String))  # For performance only Strings are compared (avoids parsing values)
 
-    @info "$(now()) Appending spineID to spine"
-    utils.append_spineid!(spine, cfg.spine.schema.primarykey)
+    if in(:spineID, names(spine))
+        spine[!, :spineID] = [parse(UInt, x) for x in spine[!, :spineID]]
+    else
+        @info "$(now()) Appending spineID to spine"
+        utils.append_spineid!(spine, cfg.spine.schema.primarykey)
+    end
 
     @info "$(now()) Writing spine_primarykey_and_spineid.tsv to the output directory"
     CSV.write(joinpath(cfg.output_directory, "output", "spine_primarykey_and_spineid.tsv"), spine[!, vcat(:spineID, cfg.spine.schema.primarykey)]; delim='\t')
@@ -58,6 +62,7 @@ function run_linkage(configfile::String)
         link_table_to_spine(spine, table_infile, table_outfile, tableschema, tablecriteria, criteriaid2index, criteriaid2key)
     end
     @info "$(now()) Finished linkage"
+    cfg.output_directory
 end
 
 function link_table_to_spine(spine::DataFrame,

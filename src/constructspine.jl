@@ -16,6 +16,7 @@ using ..utils
 
 """
 Construct a spine by linking a table to itself.
+Return the output directory.
 """
 function construct_spine(configfile::String)
     @info "$(now()) Configuring spine construction"
@@ -46,6 +47,7 @@ function construct_spine(configfile::String)
     CSV.write(joinpath(cfg.output_directory, "output", "spine.tsv"), spine[!, colnames]; delim='\t')
 
     @info "$(now()) Finished spine construction"
+    cfg.output_directory
 end
 
 """

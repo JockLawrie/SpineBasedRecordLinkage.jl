@@ -1,5 +1,5 @@
 projectname: testing
-output_directory: ""  # pwd is the test directory
+output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
 tables:
   emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
