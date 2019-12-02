@@ -24,9 +24,9 @@ function stack_tables(outfile::String, infiles...; replace_outfile::Bool=false, 
     run_checks(outfile, replace_outfile, columns, infiles...)
     dlm      = utils.get_delimiter(outfile)
     colnames = get_colnames(columns, infiles)
-    data     = DataFrame(fill(String, length(colnames)), colnames, 0)
+    data     = DataFrame(fill(Union{Missing, String}, length(colnames)), colnames, 0)
     CSV.write(outfile, data; delim=dlm, append=false)
-    data     = DataFrame(fill(String, length(colnames)), colnames, 1_000_000)
+    data     = DataFrame(fill(Union{Missing, String}, length(colnames)), colnames, 1_000_000)
     n = 0
     for filename in infiles 
         @info "$(now()) Stacking $(filename)"
@@ -91,7 +91,7 @@ function get_colnames(columns::Symbol, infiles)
                        utils.earlyexit(msg)
             end
         else  # columns == :union
-            push!(colnames, csvrows.names)
+            push!(colnames, csvrows.names...)
         end
     end
     sort!([colname for colname in colnames])

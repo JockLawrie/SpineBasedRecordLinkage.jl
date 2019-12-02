@@ -55,9 +55,4 @@ end
 @test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 6", nrecords=1), result_set)
 @test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 7", nrecords=1), result_set)
 @test in((tablename="notifiable_disease_reports", status1="unlinked",                  nrecords=4), result_set)
-
-# Clean up
-contents = readdir("output")
-for x in contents
-    rm(joinpath(pwd(), "output", x); recursive=true)
-end
+cleanup()

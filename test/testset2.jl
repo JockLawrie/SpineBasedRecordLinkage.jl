@@ -8,7 +8,7 @@
 =#
 
 ################################################################################
-# Construct a spine from each of the 3 tables
+# Step 1: Construct a spine from each of the 3 tables
 outdir1 = construct_spine(joinpath("config", "constructspine_emergencies.yml"))
 spine1  = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t'))
 @test size(spine1, 1) == 3
@@ -20,6 +20,38 @@ spine2  = DataFrame(CSV.File(joinpath(outdir2, "output", "spine.tsv"); delim='\t
 outdir3 = construct_spine(joinpath("config", "constructspine_diseases.yml"))
 spine3  = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t'))
 @test size(spine3, 1) == 4
+
+################################################################################
+# Step 2: Stack the 3 spines
+
+# Stack tables using intersection of columns
+outfile1 = joinpath(pwd(),   "output", "stackedtable_intersection.tsv")
+infile1  = joinpath(outdir1, "output", "spine.tsv")
+infile2  = joinpath(outdir2, "output", "spine.tsv")
+infile3  = joinpath(outdir3, "output", "spine.tsv")
+stack_tables(outfile1, infile1, infile2, infile3; replace_outfile=true, columns=:intersection)
+stacked = DataFrame(CSV.File(outfile1; delim='\t'))
+
+@test Set(names(stacked)) == Set([:spineID, :firstname, :middlename, :lastname, :birthdate])
+@test size(stacked) == (11, 5)
+
+# Stack tables using union of columns
+outfile2 = joinpath(pwd(),   "output", "stackedtable_union.tsv")
+stack_tables(outfile2, infile1, infile2, infile3; replace_outfile=true, columns=:union)
+stacked = DataFrame(CSV.File(outfile2; delim='\t'))
+nms = [:spineID, :firstname, :middlename, :lastname, :birthdate, :patient_postcode,
+       :hospitalid, :campusid, :patientid, :admissiondate, :dischargedate, :presentationdate,
+       :reportid, :reportdate]
+
+@test Set(names(stacked)) == Set(nms)
+@test size(stacked) == (11, 14)
+
+################################################################################
+# Step 3: Construct a spine from the stacked table (intersection of columns).
+
+stacked = DataFrame(CSV.File(outfile1; delim='\t'))
+
+
 
 ################################################################################
 # Linkage
@@ -68,10 +100,5 @@ end
 @test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 6", nrecords=1), result_set)
 @test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 7", nrecords=1), result_set)
 @test in((tablename="notifiable_disease_reports", status1="unlinked",                  nrecords=4), result_set)
-
-# Clean up
-contents = readdir("output")
-for x in contents
-    rm(joinpath(pwd(), "output", x); recursive=true)
-end
+cleanup()
 =#
