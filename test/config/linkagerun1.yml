@@ -9,6 +9,11 @@ criteria:
     - {tablename: emergency_presentations, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: emergency_presentations, exactmatch: {birthdate: birthdate},
                                            approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3},
-                                                         {datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3}]}
+                                                         {datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
     - {tablename: hospital_admissions, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
     - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, birthdate: birthdate},
+                                              approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
+    - {tablename: notifiable_disease_reports, exactmatch: {lastname: lastname, birthdate: birthdate},
+                                              approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}
