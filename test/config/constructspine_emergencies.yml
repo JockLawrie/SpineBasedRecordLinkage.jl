@@ -1,0 +1,10 @@
+projectname: emergencies
+output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
+spine: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
+tables:
+    emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
+criteria:
+    - {tablename: emergency_presentations, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: emergency_presentations, exactmatch: {birthdate: birthdate},
+                                           approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3},
+                                                         {datacolumn: lastname,  spinecolumn: lastname,  distancemetric: levenshtein, threshold: 0.3}]}

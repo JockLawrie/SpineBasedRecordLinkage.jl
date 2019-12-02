@@ -1,16 +1,29 @@
 #=
-  Test set 1.
+  Test set 2.
 
-  1. Construct the spine from the emergency_presentations table.
-  2. Link the emergency_presentations, hospital_admissions and notifiable_disease_reports tables to the spine.
+  1. Construct a spine from each of the 3 tables.
+  2. Stack into a single table.
+  3. Construct a spine from the stacked table.
+  4. Link the 3 tables to the spine.
 =#
 
-# Construct spine
-outdir = construct_spine(joinpath("config", "constructspine_emergencies.yml"))
-spine  = DataFrame(CSV.File(joinpath(outdir, "output", "spine.tsv"); delim='\t'))
-@test size(spine, 1) == 3
+################################################################################
+# Construct a spine from each of the 3 tables
+outdir1 = construct_spine(joinpath("config", "constructspine_emergencies.yml"))
+spine1  = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t'))
+@test size(spine1, 1) == 3
 
+outdir2 = construct_spine(joinpath("config", "constructspine_admissions.yml"))
+spine2  = DataFrame(CSV.File(joinpath(outdir2, "output", "spine.tsv"); delim='\t'))
+@test size(spine2, 1) == 4
+
+outdir3 = construct_spine(joinpath("config", "constructspine_diseases.yml"))
+spine3  = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t'))
+@test size(spine3, 1) == 4
+
+################################################################################
 # Linkage
+#=
 cp(joinpath(outdir, "output", "spine.tsv"), joinpath("output", "spine.tsv"); force=true)
 outdir = run_linkage(joinpath("config", "linkagerun1.yml"))
 ep     = DataFrame(CSV.File(joinpath(outdir, "output", "emergency_presentations_linked.tsv"); delim='\t'))
@@ -61,3 +74,4 @@ contents = readdir("output")
 for x in contents
     rm(joinpath(pwd(), "output", x); recursive=true)
 end
+=#
