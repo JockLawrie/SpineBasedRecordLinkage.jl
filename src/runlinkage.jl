@@ -77,6 +77,8 @@ function link_table_to_spine(spine::DataFrame,
     for row in CSV.Rows(table_infile; reusebuffer=true)
         # Store primary key
         i_data += 1
+        data[i_data, :spineID]    = missing
+        data[i_data, :criteriaID] = missing
         for colname in data_primarykey
             data[i_data, colname] = getproperty(row, colname)
         end
