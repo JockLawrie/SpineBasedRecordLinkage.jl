@@ -1,7 +1,8 @@
 module SpineBasedRecordLinkage
 
-export construct_spine, stack_tables, run_linkage,  # Core functions
-       summarise_linkage_run, compare_linkage_runs  # Reporting functions
+export construct_spine, run_linkage,                            # Core functions
+       combine_schemata, combine_configurations, stack_tables,  # Combining functions
+       summarise_linkage_run, compare_linkage_runs              # Reporting functions
 
 # Functions that aren't exported
 include("unexported/distances.jl")     # Independent
@@ -14,13 +15,20 @@ using .TableIndexes
 using .config
 using .utils
 
+# Combining functions
+#include("combineschemata.jl")
+#include("combineconfigurations.jl")
+include("stacktables.jl")
+
+#using .combineschemata
+#using .combineconfigurations
+using .stacktables
+
 # Core functions
 include("constructspine.jl")
-include("stacktables.jl")
 include("runlinkage.jl")
 
 using .constructspine
-using .stacktables
 using .runlinkage
 
 # Reporting functions

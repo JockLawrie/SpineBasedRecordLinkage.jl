@@ -2,9 +2,11 @@
   Test set 2.
 
   1. Construct a spine from each of the 3 tables.
-  2. Stack into a single table.
-  3. Construct a spine from the stacked table.
-  4. Link the 3 tables to the spine.
+  2. Stack the 3 spines into a single table with the columns being the intersection of the sets of columns.
+  3. Construct a schema for the stacked table by combining the schemata of the 3 tables.
+  4. Construct a construct_spine config for the stacked table by combining the construct_spine configs of the 3 tables.
+  5. Construct a spine from the stacked table.
+  6. Link the 3 tables to the spine.
 =#
 
 ################################################################################
@@ -22,9 +24,8 @@ spine3  = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t
 @test size(spine3, 1) == 4
 
 ################################################################################
-# Step 2: Stack the 3 spines
+# Step 2: Stack the 3 spines using the intersection of the columns
 
-# Stack tables using intersection of columns
 outfile1 = joinpath(pwd(),   "output", "stackedtable_intersection.tsv")
 infile1  = joinpath(outdir1, "output", "spine.tsv")
 infile2  = joinpath(outdir2, "output", "spine.tsv")
@@ -35,23 +36,18 @@ stacked = DataFrame(CSV.File(outfile1; delim='\t'))
 @test Set(names(stacked)) == Set([:spineID, :firstname, :middlename, :lastname, :birthdate])
 @test size(stacked) == (11, 5)
 
-# Stack tables using union of columns
-outfile2 = joinpath(pwd(),   "output", "stackedtable_union.tsv")
-stack_tables(outfile2, infile1, infile2, infile3; replace_outfile=true, columns=:union)
-stacked = DataFrame(CSV.File(outfile2; delim='\t'))
-nms = [:spineID, :firstname, :middlename, :lastname, :birthdate, :patient_postcode,
-       :hospitalid, :campusid, :patientid, :admissiondate, :dischargedate, :presentationdate,
-       :reportid, :reportdate]
-
-@test Set(names(stacked)) == Set(nms)
-@test size(stacked) == (11, 14)
+################################################################################
+# Step 3. Construct a schema for the stacked table by combining the schemata of the 3 tables.
 
 ################################################################################
-# Step 3: Construct a spine from the stacked table (intersection of columns).
+# Step 4: Construct a construct_spine config for the stacked table by combining the construct_spine configs of the 3 tables.
 
-stacked = DataFrame(CSV.File(outfile1; delim='\t'))
+################################################################################
+# Step 5: Construct a spine from the stacked table (intersection of columns).
 
-
+#outdir4 = construct_spine(joinpath("config", "constructspine_stacked.yml"))
+#spine4  = DataFrame(CSV.File(joinpath(outdir4, "output", "spine.tsv"); delim='\t'))
+#@test size(spine3, 1) == 6  # 6 people across 18 events
 
 ################################################################################
 # Linkage

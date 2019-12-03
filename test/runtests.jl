@@ -20,5 +20,6 @@ admissions    = DataFrame(CSV.File(joinpath("data", "hospital_admissions.csv")))
 notifications = DataFrame(CSV.File(joinpath("data", "notifiable_disease_reports.csv")))
 
 # Test sets
-#include("testset1.jl")
-include("testset2.jl")
+#include("testset1.jl")  # Construct spine from 1 data set
+include("testset2.jl")   # Construct spine from multiple data sets using the intersection of columns
+#include("testset3.jl")  # Construct spine from multiple data sets using the union of columns

@@ -9,6 +9,7 @@ using Logging
 
 using ..utils
 
+
 """
 Vertically stacks the tables specified by the filenames and stores the output in the specified output file.
 
