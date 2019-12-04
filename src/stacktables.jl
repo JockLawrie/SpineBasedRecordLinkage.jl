@@ -59,26 +59,4 @@ function stack_tables(outfile::String, infiles...; replace_outfile::Bool=false, 
     @info "$(now()) Finished stack_tables"
 end
 
-"Runs checks for the stack_tables function."
-function run_checks(outfile, replace_outfile, columns, infiles...)
-    msgs = String[]
-    if columns != :intersection && columns != :union
-        push!(msgs, "The keyword argument columns must be either :intersection or :union.")
-    end
-    if isfile(outfile) && !replace_outfile
-        msg = "The output file is not to be replaced.
-               Either specify a different output file or set the keyword argument replace_outfile to true."
-        push!(msgs, msg)
-    end
-    isdir(outfile) && push!(msgs, "The output file is a directory. Please specify a file.")
-    if !isdir(dirname(outfile))
-        msg = "The directory containing the output file does not exist. Please create it or specifiy a different output file."
-        push!(msgs, msg)
-    end
-    for filename in infiles
-        !isfile(filename) && push!(msgs, "$(filename) is not a file. Skipping to next next file.")
-    end
-    !isempty(msgs) && utils.earlyexit(msgs)
-end
-
 end

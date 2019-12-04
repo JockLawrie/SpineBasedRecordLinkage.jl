@@ -66,7 +66,7 @@ function combine_schemata(outfile::String, schemafiles...; replace_outfile::Bool
     primarykey  = sort!([k for (k, v) in colname2colschema])
     colschemata = sort!([v for (k, v) in colname2colschema], by=(x) -> x.name)
     @info "$(now()) Finished combine_schemata"
-    TableSchema(name, description, colschemata, primarykey)
+    TableSchema(Symbol(name), description, colschemata, primarykey)
 end
 
 end
