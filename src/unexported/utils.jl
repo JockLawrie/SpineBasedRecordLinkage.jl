@@ -4,7 +4,6 @@ using CSV
 using Dates
 using DataFrames
 using Logging
-using Schemata
 
 using ..TableIndexes
 using ..config
@@ -99,6 +98,31 @@ function get_delimiter(filename::String)
     ext = lowercase(splitext(filename)[2])
     ext = occursin(".", ext) ? replace(ext, "." => "") : "csv"
     ext == "tsv" ? '\t' : ','
+end
+
+"Returns a sorted vector of column names that is the intersection or union of the column names in the input files according to whether the columns argument is :intersection or :union."
+function get_colnames(columns::Symbol, infiles)
+    fname, ext = splitext(infiles[1])
+    in(lowercase(ext), Set([".csv", ".tsv"]))  && return get_colnames_csv(columns, infiles)
+    error("Cannot get the column names from files with extension $(ext).")
+ end
+
+function get_colnames_csv(columns::Symbol, infiles)
+    colnames = Set{Symbol}()
+    for filename in infiles
+        dlm = get_delimiter(filename)
+        csvrows = CSV.Rows(filename; delim=dlm, reusebuffer=true)
+        if columns == :intersection
+            colnames = isempty(colnames) ? csvrows.names : intersect(colnames, csvrows.names)
+            if isempty(colnames)
+                msg = "The input tables have no common columns. The result will have no columns. Either reduce the number of input files or set the keyword argument column_intersection to false."
+                       earlyexit(msg)
+            end
+        else  # columns == :union
+            push!(colnames, csvrows.names...)
+        end
+    end
+    sort!([colname for colname in colnames])
 end
 
 end

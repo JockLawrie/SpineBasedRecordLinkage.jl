@@ -22,9 +22,9 @@ Options:
 """
 function stack_tables(outfile::String, infiles...; replace_outfile::Bool=false, columns::Symbol=:intersection)
     @info "$(now()) Starting stack_tables"
-    run_checks(outfile, replace_outfile, columns, infiles...)
+    utils.run_checks(outfile, replace_outfile, columns, infiles...)
     dlm      = utils.get_delimiter(outfile)
-    colnames = get_colnames(columns, infiles)
+    colnames = utils.get_colnames(columns, infiles)
     data     = DataFrame(fill(Union{Missing, String}, length(colnames)), colnames, 0)
     CSV.write(outfile, data; delim=dlm, append=false)
     data     = DataFrame(fill(Union{Missing, String}, length(colnames)), colnames, 1_000_000)
@@ -59,6 +59,7 @@ function stack_tables(outfile::String, infiles...; replace_outfile::Bool=false, 
     @info "$(now()) Finished stack_tables"
 end
 
+"Runs checks for the stack_tables function."
 function run_checks(outfile, replace_outfile, columns, infiles...)
     msgs = String[]
     if columns != :intersection && columns != :union
@@ -78,24 +79,6 @@ function run_checks(outfile, replace_outfile, columns, infiles...)
         !isfile(filename) && push!(msgs, "$(filename) is not a file. Skipping to next next file.")
     end
     !isempty(msgs) && utils.earlyexit(msgs)
-end
-
-function get_colnames(columns::Symbol, infiles)
-    colnames = Set{Symbol}()
-    for filename in infiles
-        csvrows = CSV.Rows(filename; reusebuffer=true)
-        if columns == :intersection
-            colnames = isempty(colnames) ? csvrows.names : intersect(colnames, csvrows.names)
-            if isempty(colnames)
-                msg = "The input tables have no common columns. The result will have no columns.
-                       Either reduce the number of input files or set the keyword argument column_intersection to false."
-                       utils.earlyexit(msg)
-            end
-        else  # columns == :union
-            push!(colnames, csvrows.names...)
-        end
-    end
-    sort!([colname for colname in colnames])
 end
 
 end

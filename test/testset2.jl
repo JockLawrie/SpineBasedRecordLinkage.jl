@@ -39,6 +39,18 @@ stacked = DataFrame(CSV.File(outfile1; delim='\t'))
 ################################################################################
 # Step 3. Construct a schema for the stacked table by combining the schemata of the 3 tables.
 
+outfile1 = joinpath(pwd(), "output", "combined_schema.yml")
+infile1  = joinpath(pwd(), "schema", "emergency_presentations.yml")
+infile2  = joinpath(pwd(), "schema", "hospital_admissions.yml")
+infile3  = joinpath(pwd(), "schema", "notifiable_disease_reports.yml")
+ts = combine_schemata(outfile1, infile1, infile2, infile3; replace_outfile=true, columns=:intersection)
+
+println(ts.name)
+println(ts.description)
+println(ts.primarykey)
+println(ts.columnorder)
+println(ts.colname2colschema)
+
 ################################################################################
 # Step 4: Construct a construct_spine config for the stacked table by combining the construct_spine configs of the 3 tables.
 
@@ -47,7 +59,7 @@ stacked = DataFrame(CSV.File(outfile1; delim='\t'))
 
 #outdir4 = construct_spine(joinpath("config", "constructspine_stacked.yml"))
 #spine4  = DataFrame(CSV.File(joinpath(outdir4, "output", "spine.tsv"); delim='\t'))
-#@test size(spine3, 1) == 6  # 6 people across 18 events
+#@test size(spine3, 1) == 7  # 7 people across 18 events
 
 ################################################################################
 # Linkage

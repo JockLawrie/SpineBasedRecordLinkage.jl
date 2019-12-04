@@ -16,11 +16,11 @@ using .config
 using .utils
 
 # Combining functions
-#include("combineschemata.jl")
+include("combineschemata.jl")
 #include("combineconfigurations.jl")
 include("stacktables.jl")
 
-#using .combineschemata
+using .combineschemata
 #using .combineconfigurations
 using .stacktables
 
