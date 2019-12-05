@@ -32,7 +32,10 @@ function construct_spine(configfile::String)
     CSV.write(joinpath(d, "input", "SoftwareVersions.csv"), software_versions; delim=',')  # Write software_versions to d/input
 
     @info "$(now()) Importing data"
-    data = DataFrame(CSV.File(cfg.spine.datafile; type=String))  # We only compare Strings...avoids parsing values (which should be done prior to linkage using Schemata.jl)
+    data = DataFrame(CSV.File(cfg.spine.datafile; type=String))
+    if in(:spineID, names(data))
+        select!(data, Not(:spineID))
+    end
 
     @info "$(now()) Constructing groups of linked rows."
     mc = construct_maximal_cliques(cfg, data)

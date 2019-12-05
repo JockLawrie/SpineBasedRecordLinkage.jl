@@ -12,26 +12,26 @@
 ################################################################################
 # Step 1: Construct a spine from each of the 3 tables
 outdir1 = construct_spine(joinpath("config", "constructspine_emergencies.yml"))
-spine1  = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t'))
-@test size(spine1, 1) == 3
+spine   = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t'))
+@test size(spine, 1) == 3
 
 outdir2 = construct_spine(joinpath("config", "constructspine_admissions.yml"))
-spine2  = DataFrame(CSV.File(joinpath(outdir2, "output", "spine.tsv"); delim='\t'))
-@test size(spine2, 1) == 4
+spine   = DataFrame(CSV.File(joinpath(outdir2, "output", "spine.tsv"); delim='\t'))
+@test size(spine, 1) == 4
 
 outdir3 = construct_spine(joinpath("config", "constructspine_diseases.yml"))
-spine3  = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t'))
-@test size(spine3, 1) == 4
+spine   = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t'))
+@test size(spine, 1) == 4
 
 ################################################################################
 # Step 2: Stack the 3 spines using the intersection of the columns
 
-outfile1 = joinpath(pwd(),   "output", "stackedtable_intersection.tsv")
-infile1  = joinpath(outdir1, "output", "spine.tsv")
-infile2  = joinpath(outdir2, "output", "spine.tsv")
-infile3  = joinpath(outdir3, "output", "spine.tsv")
-stack_tables(outfile1, infile1, infile2, infile3; replace_outfile=true, columns=:intersection)
-stacked = DataFrame(CSV.File(outfile1; delim='\t'))
+spine_datafile = joinpath(pwd(), "output", "stackedtable_intersection.tsv")  # Store result here
+infile1 = joinpath(outdir1, "output", "spine.tsv")
+infile2 = joinpath(outdir2, "output", "spine.tsv")
+infile3 = joinpath(outdir3, "output", "spine.tsv")
+stack_tables(spine_datafile, infile1, infile2, infile3; replace_outfile=true, columns=:intersection)
+stacked = DataFrame(CSV.File(spine_datafile; delim='\t'))
 
 @test Set(names(stacked)) == Set([:spineID, :firstname, :middlename, :lastname, :birthdate])
 @test size(stacked) == (11, 5)
@@ -39,27 +39,29 @@ stacked = DataFrame(CSV.File(outfile1; delim='\t'))
 ################################################################################
 # Step 3. Construct a schema for the stacked table by combining the schemata of the 3 tables.
 
-outfile1 = joinpath(pwd(), "output", "combined_schema.yml")
-infile1  = joinpath(pwd(), "schema", "emergency_presentations.yml")
-infile2  = joinpath(pwd(), "schema", "hospital_admissions.yml")
-infile3  = joinpath(pwd(), "schema", "notifiable_disease_reports.yml")
-ts = combine_schemata(outfile1, infile1, infile2, infile3; replace_outfile=true, columns=:intersection)
-
-println(ts.name)
-println(ts.description)
-println(ts.primarykey)
-println(ts.columnorder)
-println(ts.colname2colschema)
+spine_schemafile = joinpath(pwd(), "output", "combined_schema.yml")  # Store result here
+infile1 = joinpath(pwd(), "schema", "emergency_presentations.yml")
+infile2 = joinpath(pwd(), "schema", "hospital_admissions.yml")
+infile3 = joinpath(pwd(), "schema", "notifiable_disease_reports.yml")
+combine_schemata(spine_schemafile, infile1, infile2, infile3; replace_outfile=true, columns=:intersection)
 
 ################################################################################
 # Step 4: Construct a construct_spine config for the stacked table by combining the construct_spine configs of the 3 tables.
 
+spine_linkagefile = joinpath(pwd(), "output", "combined_linkage.yml")  # Store result here
+linkage_outdir    = joinpath(pwd(), "output")
+infile1 = joinpath("config", "constructspine_emergencies.yml")
+infile2 = joinpath("config", "constructspine_admissions.yml")
+infile3 = joinpath("config", "constructspine_diseases.yml")
+combine_spine_construction_configs(linkage_outdir, spine_datafile, spine_schemafile, spine_linkagefile,
+                                   infile1, infile2, infile3; replace_outfile=true)
+
 ################################################################################
 # Step 5: Construct a spine from the stacked table (intersection of columns).
 
-#outdir4 = construct_spine(joinpath("config", "constructspine_stacked.yml"))
-#spine4  = DataFrame(CSV.File(joinpath(outdir4, "output", "spine.tsv"); delim='\t'))
-#@test size(spine3, 1) == 7  # 7 people across 18 events
+outdir = construct_spine(spine_linkagefile)
+spine  = DataFrame(CSV.File(joinpath(outdir, "output", "spine.tsv"); delim='\t'))
+@test size(spine, 1) == 6  # 6 people across 18 events
 
 ################################################################################
 # Linkage

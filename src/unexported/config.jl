@@ -95,6 +95,7 @@ tables:           Dict of (tablename, TableConfig) pairs, with 1 pair for each d
 criteria:         Vector{Vector{LinkageCriteria}}, where criteria[i] = [criteria for a table i].
 """
 struct LinkageConfig
+    projectname::String
     output_directory::String
     spine::TableConfig
     tables::Dict{String, TableConfig}
@@ -109,12 +110,13 @@ end
 
 function LinkageConfig(d::Dict, purpose::String)
     (purpose != "linkage") && (purpose != "spineconstruction") && error("Config purpose is not recognised. Must be either linkage or spineconstruction.")
-    dttm   = "$(round(now(), Second(1)))"
-    dttm   = replace(dttm, "-" => ".")
-    dttm   = replace(dttm, ":" => ".")
-    outdir = joinpath(d["output_directory"], "$(purpose)-$(d["projectname"])-$(dttm)")
-    spine  = TableConfig("spine", d["spine"])
-    tables = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
+    projectname = d["projectname"]
+    dttm        = "$(round(now(), Second(1)))"
+    dttm        = replace(dttm, "-" => ".")
+    dttm        = replace(dttm, ":" => ".")
+    outdir      = joinpath(d["output_directory"], "$(purpose)-$(projectname)-$(dttm)")
+    spine       = TableConfig("spine", d["spine"])
+    tables      = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
 
     # Criteria: retains original order but grouped by tablename for computational convenience
     criteria      = Vector{LinkageCriteria}[]
@@ -129,7 +131,7 @@ function LinkageConfig(d::Dict, purpose::String)
         criterionid += 1
         push!(criteria[tablename2idx[tablename]], LinkageCriteria(criterionid, x))
     end
-    LinkageConfig(outdir, spine, tables, criteria)
+    LinkageConfig(projectname, outdir, spine, tables, criteria)
 end
 
 """

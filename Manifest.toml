@@ -148,10 +148,10 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MacroTools]]
-deps = ["Compat", "DataStructures", "Test"]
-git-tree-sha1 = "82921f0e3bde6aebb8e524efc20f4042373c0c06"
+deps = ["DataStructures", "Markdown", "Random"]
+git-tree-sha1 = "e2fc7a55bb2224e203bbd8b59f72b91323233458"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-version = "0.5.2"
+version = "0.5.3"
 
 [[Markdown]]
 deps = ["Base64"]
@@ -209,8 +209,8 @@ version = "0.2.0"
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [[Schemata]]
-deps = ["CSV", "CategoricalArrays", "DataFrames", "Dates", "Parsers", "Tables", "YAML"]
-git-tree-sha1 = "bccf71560e0b89c982016e1877b985b1cf95f3d9"
+deps = ["CSV", "CategoricalArrays", "DataFrames", "Dates", "Logging", "Parsers", "Tables", "YAML"]
+path = "/projects/jock/repos/Schemata.jl/"
 uuid = "b4d66a32-c6c0-5461-b6fa-34bb9cecaf85"
 version = "2.0.5"
 
@@ -287,6 +287,8 @@ version = "0.6.1"
 
 [[YAML]]
 deps = ["Codecs", "Compat"]
-git-tree-sha1 = "3bde77cee95cce0c0b9b18813d85e18e8ed4f415"
+git-tree-sha1 = "95f30674d819c2a9f8582e545b90185b3c7324a0"
+repo-rev = "master"
+repo-url = "https://github.com/BioJulia/YAML.jl.git"
 uuid = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
-version = "0.3.2"
+version = "0.3.2+"

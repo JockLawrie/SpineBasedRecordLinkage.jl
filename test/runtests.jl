@@ -3,6 +3,7 @@ using SpineBasedRecordLinkage
 
 using CSV
 using DataFrames
+using Schemata
 
 # NOTE: pwd is /path/to/SpineBasedRecordLinkage.jl/test/
 
