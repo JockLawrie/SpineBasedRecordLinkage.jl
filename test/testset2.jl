@@ -6,7 +6,8 @@
   3. Construct a schema for the stacked table by combining the schemata of the 3 tables.
   4. Construct a construct_spine config for the stacked table by combining the construct_spine configs of the 3 tables.
   5. Construct a spine from the stacked table.
-  6. Link the 3 tables to the spine.
+  6. Construct a linkage config file from the inidividual spine construction config files.
+  7. Link the 3 tables to the spine.
 =#
 
 ################################################################################
@@ -39,7 +40,7 @@ stacked = DataFrame(CSV.File(spine_datafile; delim='\t'))
 ################################################################################
 # Step 3. Construct a schema for the stacked table by combining the schemata of the 3 tables.
 
-spine_schemafile = joinpath(pwd(), "output", "combined_schema.yml")  # Store result here
+spine_schemafile = joinpath(pwd(), "output", "combined_spine_schema.yml")  # Store result here
 infile1 = joinpath(pwd(), "schema", "emergency_presentations.yml")
 infile2 = joinpath(pwd(), "schema", "hospital_admissions.yml")
 infile3 = joinpath(pwd(), "schema", "notifiable_disease_reports.yml")
@@ -48,7 +49,7 @@ combine_schemata(spine_schemafile, infile1, infile2, infile3; replace_outfile=tr
 ################################################################################
 # Step 4: Construct a construct_spine config for the stacked table by combining the construct_spine configs of the 3 tables.
 
-spine_linkagefile = joinpath(pwd(), "output", "combined_linkage.yml")  # Store result here
+spine_linkagefile = joinpath(pwd(), "output", "combined_constructspine.yml")  # Store result here
 linkage_outdir    = joinpath(pwd(), "output")
 infile1 = joinpath("config", "constructspine_emergencies.yml")
 infile2 = joinpath("config", "constructspine_admissions.yml")
@@ -64,10 +65,23 @@ spine  = DataFrame(CSV.File(joinpath(outdir, "output", "spine.tsv"); delim='\t')
 @test size(spine, 1) == 6  # 6 people across 18 events
 
 ################################################################################
+# Step 6: Construct a linkage config file from the inidividual spine construction config files.
+
+# Have: spine_schemafile
+infile1 = joinpath("config", "constructspine_emergencies.yml")
+infile2 = joinpath("config", "constructspine_admissions.yml")
+infile3 = joinpath("config", "constructspine_diseases.yml")
+outfile = joinpath(pwd(), "output", "combined_linkage.yml")  # Store result here
+spine_datafile = joinpath(outdir, "output", "spine.tsv")
+linkage_outdir = joinpath(pwd(), "output")
+combine_linkage_configs(linkage_outdir, spine_datafile, spine_schemafile, outfile,
+                        infile1, infile2, infile3; replace_outfile=true)
+
+################################################################################
 # Linkage
 #=
 cp(joinpath(outdir, "output", "spine.tsv"), joinpath("output", "spine.tsv"); force=true)
-outdir = run_linkage(joinpath("config", "linkagerun1.yml"))
+outdir = run_linkage(joinpath(outfile)
 ep     = DataFrame(CSV.File(joinpath(outdir, "output", "emergency_presentations_linked.tsv"); delim='\t'))
 ha     = DataFrame(CSV.File(joinpath(outdir, "output", "hospital_admissions_linked.tsv"); delim='\t'))
 ndr    = DataFrame(CSV.File(joinpath(outdir, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))

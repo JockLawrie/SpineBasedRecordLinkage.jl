@@ -1,4 +1,4 @@
-module combine_linkage_configurations
+module combine_spine_construction_configurations
 
 export combine_spine_construction_configs
 
@@ -12,14 +12,14 @@ using ..utils
 
 
 """
-Combine several spine construction configs into 1 spine construction config.
+Combine several spine construction configs into 1 spine construction config and store the result in outfile.
 
 This function is used when constructing a spine from several tables.
 
 The resulting linkage config file is obtained from the input configs as follows:
 
 1. projectname = name1-name2-...-namek, where name1 is the projectname of the first input config.
-2. output_directory = the output_directory of the first input config.
+2. output_directory = The 1st argument.
 3. spine    = {datafile: spine_datafile, schemafile: spine_schemafile}
 4. tables   = "spinedata" => {datafile: spine_datafile, schemafile: spine_schemafile}
 5. criteria = the largest set of criteria from the linkage files that can be applied.
