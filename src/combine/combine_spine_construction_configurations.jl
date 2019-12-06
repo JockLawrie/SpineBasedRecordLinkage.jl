@@ -31,10 +31,17 @@ function combine_spine_construction_configs(output_directory::String, spine_data
     !isdir(output_directory) && error("Output directory does not exist.")
     fname, ext  = splitext(outfile)
     outfile     = in(ext, Set([".yaml", ".yml"])) ? outfile : "$(fname).yml"
+
+    # HACK: Use Symbols so that the YAML writer doesn't quote the corresponding strings, which causes an error when the written YAML file is read back in.
+    output_directory = Symbol(output_directory)
+    spine_datafile   = Symbol(spine_datafile)
+    spine_schemafile = Symbol(spine_schemafile)
+
+    # Construct components
     projectname = ""
     criteria    = Dict{String, Any}[]
-    tablename   = "spinedata"
-    spineschema = readschema(spine_schemafile)
+    tablename   = :spinedata  # Using a Symbol so that the YAML writer doesn't quote the string
+    spineschema = readschema(String(spine_schemafile))
     for linkagefile in linkagefiles
         @info "$(now()) Combining config $(linkagefile)"
         cfg = spine_construction_config(linkagefile)
@@ -51,6 +58,7 @@ function combine_spine_construction_configs(output_directory::String, spine_data
             push!(criteria, d)
         end
     end
+    projectname = Symbol(projectname)
 
     # Construct result
     result = Dict{String, Any}()

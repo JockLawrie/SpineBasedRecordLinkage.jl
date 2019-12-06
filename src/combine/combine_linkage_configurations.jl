@@ -31,15 +31,25 @@ function combine_linkage_configs(output_directory::String, spine_datafile::Strin
     !isdir(output_directory) && error("Output directory does not exist.")
     fname, ext  = splitext(outfile)
     outfile     = in(ext, Set([".yaml", ".yml"])) ? outfile : "$(fname).yml"
-    tables      = Dict{String, Dict{String, String}}()  # tablename => Dict("datafile" => datafile, "schemafile" => schemafile)
+
+    # HACK: Use Symbols so that the YAML writer doesn't quote the corresponding strings, which causes an error when the written YAML file is read back in.
+    output_directory = Symbol(output_directory)
+    spine_datafile   = Symbol(spine_datafile)
+    spine_schemafile = Symbol(spine_schemafile)
+
+    # Construct components
+    tables      = Dict{Symbol, Dict{Symbol, Symbol}}()  # tablename => Dict("datafile" => datafile, "schemafile" => schemafile)
     criteria    = Dict{String, Any}[]
-    spineschema = readschema(spine_schemafile)
+    spineschema = readschema(String(spine_schemafile))
+    projectname = Symbol(spineschema.name)
     for linkagefile in linkagefiles
         @info "$(now()) Combining config $(linkagefile)"
         cfg   = spine_construction_config(linkagefile)
         d_cfg = YAML.load_file(linkagefile)
         tablename, tableconfig = first(d_cfg["tables"])
-        push!(tables, tablename => tableconfig)
+        tablename = Symbol(tablename)
+        #push!(tables, tablename => tableconfig)
+        push!(tables, tablename => Dict(:datafile => Symbol(tableconfig["datafile"]), :schemafile => Symbol(tableconfig["schemafile"])))
         for criterion in cfg.criteria[1]  # cfg.criteria isa Vector{LinkageCriteria}
             !criterion_cols_are_in_spineschema(criterion, spineschema) && continue
             d = Dict{String, Any}()
@@ -51,11 +61,10 @@ function combine_linkage_configs(output_directory::String, spine_datafile::Strin
             push!(criteria, d)
         end
     end
-    spineschema = readschema(spine_schemafile)
 
     # Construct result
     result = Dict{String, Any}()
-    result["projectname"] = spineschema.name
+    result["projectname"] = projectname
     result["output_directory"] = output_directory
     result["spine"]    = Dict("datafile" => spine_datafile, "schemafile" => spine_schemafile)
     result["tables"]   = tables

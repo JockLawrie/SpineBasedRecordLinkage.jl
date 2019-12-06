@@ -6,16 +6,16 @@
 =#
 
 # Construct spine
-outdir = construct_spine(joinpath("config", "constructspine_emergencies.yml"))
-spine  = DataFrame(CSV.File(joinpath(outdir, "output", "spine.tsv"); delim='\t'))
+outdir1 = construct_spine(joinpath("config", "constructspine_emergencies.yml"))
+spine   = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t'))
 @test size(spine, 1) == 3
 
 # Linkage
-cp(joinpath(outdir, "output", "spine.tsv"), joinpath("output", "spine.tsv"); force=true)
-outdir = run_linkage(joinpath("config", "linkagerun1.yml"))
-ep     = DataFrame(CSV.File(joinpath(outdir, "output", "emergency_presentations_linked.tsv"); delim='\t'))
-ha     = DataFrame(CSV.File(joinpath(outdir, "output", "hospital_admissions_linked.tsv"); delim='\t'))
-ndr    = DataFrame(CSV.File(joinpath(outdir, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
+cp(joinpath(outdir1, "output", "spine.tsv"), joinpath(outdir, "spine.tsv"); force=true)
+outdir2 = run_linkage(joinpath("config", "linkagerun1.yml"))
+ep      = DataFrame(CSV.File(joinpath(outdir2, "output", "emergency_presentations_linked.tsv"); delim='\t'))
+ha      = DataFrame(CSV.File(joinpath(outdir2, "output", "hospital_admissions_linked.tsv"); delim='\t'))
+ndr     = DataFrame(CSV.File(joinpath(outdir2, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
 
 ep_linked  = view(ep,  .!ismissing.(ep[!,  :spineID]), :)
 ha_linked  = view(ha,  .!ismissing.(ha[!,  :spineID]), :)
@@ -35,8 +35,8 @@ ndr_linked = view(ndr, .!ismissing.(ndr[!, :spineID]), :)
 @test size(view(ndr_linked, ndr_linked[!, :criteriaID] .== 7, :), 1) == 1  # 1 of 4 links made with criteria 7
 
 # Reporting
-outfile = joinpath("output", "linkage_report.csv")
-summarise_linkage_run(outdir, outfile)
+outfile = joinpath(outdir, "linkage_report.csv")
+summarise_linkage_run(outdir2, outfile)
 report = DataFrame(CSV.File(outfile))
 result_set = Set{NamedTuple{(:tablename, :status1, :nrecords), Tuple{String, String, Union{Missing, Int}}}}()
 for r in eachrow(report)
@@ -44,7 +44,7 @@ for r in eachrow(report)
 end
 
 @test size(report, 1) == 11
-@test in((tablename="LINKAGE RUNS",               status1=outdir,                      nrecords=missing), result_set)
+@test in((tablename="LINKAGE RUNS",               status1=outdir2,                     nrecords=missing), result_set)
 @test in((tablename="spine",                      status1="existent",                  nrecords=3), result_set)
 @test in((tablename="emergency_presentations",    status1="linked with criteria ID 1", nrecords=4), result_set)
 @test in((tablename="emergency_presentations",    status1="linked with criteria ID 2", nrecords=1), result_set)
