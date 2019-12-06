@@ -49,11 +49,12 @@ combine_schemata(spine_schemafile, infile1, infile2, infile3; replace_outfile=tr
 ################################################################################
 # Step 4: Construct a construct_spine config for the stacked table by combining the construct_spine configs of the 3 tables.
 
+projectname = "combined"
 spine_linkagefile = joinpath(outdir, "combined_constructspine.yml")  # Store result here
 infile1 = joinpath("config", "constructspine_emergencies.yml")
 infile2 = joinpath("config", "constructspine_admissions.yml")
 infile3 = joinpath("config", "constructspine_diseases.yml")
-combine_spine_construction_configs(outdir, spine_datafile, spine_schemafile, spine_linkagefile,
+combine_spine_construction_configs(projectname, outdir, spine_datafile, spine_schemafile, spine_linkagefile,
                                    infile1, infile2, infile3; replace_outfile=true)
 
 ################################################################################
@@ -66,13 +67,13 @@ spine   = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t
 ################################################################################
 # Step 6: Construct a linkage config file from the inidividual spine construction config files.
 
-# Have: spine_schemafile
+projectname    = "combined"
+outfile        = joinpath(outdir, "combined_linkage.yml")  # Store result here
+spine_datafile = joinpath(outdir1, "output", "spine.tsv")
 infile1 = joinpath("config", "constructspine_emergencies.yml")
 infile2 = joinpath("config", "constructspine_admissions.yml")
 infile3 = joinpath("config", "constructspine_diseases.yml")
-outfile = joinpath(outdir, "combined_linkage.yml")  # Store result here
-spine_datafile = joinpath(outdir1, "output", "spine.tsv")
-combine_linkage_configs(outdir, spine_datafile, spine_schemafile, outfile,
+combine_linkage_configs(projectname, outdir, spine_datafile, spine_schemafile, outfile,
                         infile1, infile2, infile3; replace_outfile=true)
 
 ################################################################################

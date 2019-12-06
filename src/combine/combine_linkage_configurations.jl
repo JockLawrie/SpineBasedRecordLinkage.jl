@@ -18,13 +18,13 @@ This function is used when constructing a spine from several tables.
 
 The resulting linkage config file is obtained from the input configs as follows:
 
-1. projectname: The tablename contained in spine schema file.
-2. output_directory = The 1st argument.
+1. projectname: The 1st argument.
+2. output_directory = The 2nd argument.
 3. spine    = {datafile: spine_datafile, schemafile: spine_schemafile}
 4. tables   = The union of the tables specified in the constructspine files.
 5. criteria = The union of the criteria specified in the constructspine files.
 """
-function combine_linkage_configs(output_directory::String, spine_datafile::String, spine_schemafile::String,
+function combine_linkage_configs(projectname::String, output_directory::String, spine_datafile::String, spine_schemafile::String,
                                  outfile::String, linkagefiles...; replace_outfile::Bool=false)
     @info "$(now()) Starting combine_spine_construction_configs"
     utils.run_checks(outfile, replace_outfile, :intersection, linkagefiles...)
@@ -33,6 +33,7 @@ function combine_linkage_configs(output_directory::String, spine_datafile::Strin
     outfile     = in(ext, Set([".yaml", ".yml"])) ? outfile : "$(fname).yml"
 
     # HACK: Use Symbols so that the YAML writer doesn't quote the corresponding strings, which causes an error when the written YAML file is read back in.
+    projectname      = Symbol(projectname)
     output_directory = Symbol(output_directory)
     spine_datafile   = Symbol(spine_datafile)
     spine_schemafile = Symbol(spine_schemafile)
@@ -41,7 +42,6 @@ function combine_linkage_configs(output_directory::String, spine_datafile::Strin
     tables      = Dict{Symbol, Dict{Symbol, Symbol}}()  # tablename => Dict("datafile" => datafile, "schemafile" => schemafile)
     criteria    = Dict{String, Any}[]
     spineschema = readschema(String(spine_schemafile))
-    projectname = Symbol(spineschema.name)
     for linkagefile in linkagefiles
         @info "$(now()) Combining config $(linkagefile)"
         cfg   = spine_construction_config(linkagefile)

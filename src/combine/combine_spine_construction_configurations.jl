@@ -18,13 +18,13 @@ This function is used when constructing a spine from several tables.
 
 The resulting linkage config file is obtained from the input configs as follows:
 
-1. projectname = name1-name2-...-namek, where name1 is the projectname of the first input config.
-2. output_directory = The 1st argument.
+1. projectname = The 1st argument.
+2. output_directory = The 2nd argument.
 3. spine    = {datafile: spine_datafile, schemafile: spine_schemafile}
 4. tables   = "spinedata" => {datafile: spine_datafile, schemafile: spine_schemafile}
 5. criteria = the largest set of criteria from the linkage files that can be applied.
 """
-function combine_spine_construction_configs(output_directory::String, spine_datafile::String, spine_schemafile::String,
+function combine_spine_construction_configs(projectname::String, output_directory::String, spine_datafile::String, spine_schemafile::String,
                                             outfile::String, linkagefiles...; replace_outfile::Bool=false)
     @info "$(now()) Starting combine_spine_construction_configs"
     utils.run_checks(outfile, replace_outfile, :intersection, linkagefiles...)
@@ -33,19 +33,18 @@ function combine_spine_construction_configs(output_directory::String, spine_data
     outfile     = in(ext, Set([".yaml", ".yml"])) ? outfile : "$(fname).yml"
 
     # HACK: Use Symbols so that the YAML writer doesn't quote the corresponding strings, which causes an error when the written YAML file is read back in.
+    projectname      = Symbol(projectname)
     output_directory = Symbol(output_directory)
     spine_datafile   = Symbol(spine_datafile)
     spine_schemafile = Symbol(spine_schemafile)
 
     # Construct components
-    projectname = ""
     criteria    = Dict{String, Any}[]
     tablename   = :spinedata  # Using a Symbol so that the YAML writer doesn't quote the string
     spineschema = readschema(String(spine_schemafile))
     for linkagefile in linkagefiles
         @info "$(now()) Combining config $(linkagefile)"
         cfg = spine_construction_config(linkagefile)
-        projectname = isempty(projectname) ? "$(cfg.projectname)" : "$(projectname)-$(cfg.projectname)"
         for criterion in cfg.criteria[1]  # cfg.criteria isa Vector{LinkageCriteria}
             !criterion_cols_are_in_spineschema(criterion, spineschema) && continue
             d = Dict{String, Any}()
@@ -58,7 +57,6 @@ function combine_spine_construction_configs(output_directory::String, spine_data
             push!(criteria, d)
         end
     end
-    projectname = Symbol(projectname)
 
     # Construct result
     result = Dict{String, Any}()
