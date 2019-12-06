@@ -16,7 +16,10 @@ using ..utils
 function run_linkage(configfile::String)
     @info "$(now()) Configuring linkage"
     cfg = LinkageConfig(configfile)
+    run_linkage(cfg, configfile)  # TODO: combine the run_linkage methods into 1 method after all tests pass.
+end
 
+function run_linkage(cfg::LinkageConfig, configfile::String)
     @info "$(now()) Initialising output directory: $(cfg.output_directory)"
     d = cfg.output_directory
     mkdir(d)

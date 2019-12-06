@@ -24,6 +24,28 @@ outdir3 = construct_spine(joinpath("config", "constructspine_diseases.yml"))
 spine   = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t'))
 @test size(spine, 1) == 4
 
+######################
+#=
+Link admissions to the spine constructed from constructspine_admissions.yml.
+
+TODO:
+This linkage results in all admissions being linked to the spine constructed from constructspine_admissions.yml, which is good.
+Yet the final linkage below results in 1 admission not being linked to the final spine.
+Investigate how this happens.
+
+Notes:
+1. We have a method for collapsing a table to a spine and linking all records in the table to the spine.
+2. We want a method for combining spines and still being able to link all records.
+3. Should be able to use the method in Note 1 applied to the tables, then stack the resulting spines and apply the method to the stacked spines.
+   - We have a 2-level hierarchy of linkages, namely tables -> small spines and small spines -> big spine.
+=#
+cfg         = SpineBasedRecordLinkage.LinkageConfig(joinpath("config", "constructspine_admissions.yml"))
+spineconfig = SpineBasedRecordLinkage.config.TableConfig(joinpath(outdir2, "output", "spine.tsv"), cfg.spine.schema)
+newconfig   = SpineBasedRecordLinkage.LinkageConfig(cfg.projectname, cfg.output_directory, spineconfig, cfg.tables, cfg.criteria)
+outdir2 = run_linkage(newconfig, joinpath("config", "constructspine_admissions.yml"))
+@test 1 == 2  # Deliberate fail
+######################
+
 ################################################################################
 # Step 2: Stack the 3 spines using the intersection of the columns
 
@@ -87,12 +109,10 @@ ndr     = DataFrame(CSV.File(joinpath(outdir1, "output", "notifiable_disease_rep
 
 @test size(spine, 1) == 6
 @test size(view(ep, .!ismissing.(ep[!, :spineID]), :), 1) == 5
-#@test size(view(ha, .!ismissing.(ha[!, :spineID]), :), 1) == 5
+@test size(view(ha, .!ismissing.(ha[!, :spineID]), :), 1) == 5
 @test size(view(ndr, .!ismissing.(ndr[!, :spineID]), :), 1) == 8
 
 # Reporting
 outfile = joinpath(outdir, "linkage_report.csv")
 summarise_linkage_run(outdir1, outfile)
-#=
-cleanup()
-=#
+#cleanup()
