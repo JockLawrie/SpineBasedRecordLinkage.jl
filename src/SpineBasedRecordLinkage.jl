@@ -28,11 +28,11 @@ using .combine_spine_construction_configurations
 using .combine_linkage_configurations
 
 # Core functions
-include("constructspine.jl")
 include("runlinkage.jl")
+include("constructspine.jl")
 
-using .constructspine
 using .runlinkage
+using .constructspine
 
 # Reporting functions
 include("reporting.jl")

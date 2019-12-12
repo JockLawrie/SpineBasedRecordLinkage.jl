@@ -13,25 +13,21 @@ using ..TableIndexes
 using ..distances
 using ..config
 using ..utils
+using ..runlinkage
 
 """
 Construct a spine by linking a table to itself.
 Return the output directory.
+
+The output directory contains:
+- A spine with columns: vcat(spineID, names(table)).
+- A table containing the primary key of the input table as well as new columns :spineID and :criteriaID.
 """
 function construct_spine(configfile::String)
     @info "$(now()) Configuring spine construction"
     cfg = spine_construction_config(configfile)
 
-    @info "$(now()) Initialising output directory: $(cfg.output_directory)"
-    d = cfg.output_directory
-    mkdir(d)
-    mkdir(joinpath(d, "input"))
-    mkdir(joinpath(d, "output"))
-    cp(configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
-    software_versions = utils.construct_software_versions_table()
-    CSV.write(joinpath(d, "input", "SoftwareVersions.csv"), software_versions; delim=',')  # Write software_versions to d/input
-
-    @info "$(now()) Importing data"
+    @info "$(now()) Importing spine input data"
     data = DataFrame(CSV.File(cfg.spine.datafile; type=String))
     if in(:spineID, names(data))
         select!(data, Not(:spineID))
@@ -44,13 +40,31 @@ function construct_spine(configfile::String)
     spinerows = [rowindices[1] for rowindices in mc]  # Reduce each group to 1 row by selecting the first row (arbitrary choice)
     spine     = data[spinerows, :]
     utils.append_spineid!(spine, cfg.spine.schema.primarykey)
+    spine     = spine[:, vcat(:spineID, names(spine))]
 
-    @info "$(now()) Writing spine to the output directory ($(length(spinerows)) rows)"
-    colnames = vcat(:spineID, names(data))
-    CSV.write(joinpath(cfg.output_directory, "output", "spine.tsv"), spine[!, colnames]; delim='\t')
+    @info "$(now()) Writing the spine to a temporary directory"
+    tmpdir    = mktempdir(dirname(cfg.output_directory))
+    spinefile = joinpath(tmpdir, "spine.tsv")
+    CSV.write(spinefile, spine; delim='\t')
+    spine     = ""  # Enable GC to be triggered
+
+    @info "Constructing a linkage config that uses the spine"
+    spineconfig = config.TableConfig(spinefile, cfg.spine.schema)
+    newcfg      = LinkageConfig(cfg.projectname, cfg.output_directory, spineconfig, cfg.tables, cfg.criteria)
+    writeconfig(joinpath(tmpdir, "constructspine.yml"), newcfg)
+
+    @info "Linking data to the spine"
+    outdir = run_linkage(newcfg_file)
+
+    @info "$(now()) Cleaning up the output directory"
+    rm(joinpath(outdir, "input",  "constructspine.yml"))     # Replace new config file with original config file
+    cp(configfile, joinpath(outdir, "input", basename(configfile)))
+    cp(spinefile,  joinpath(outdir, "output", "spine.tsv"))  # Replace spine_primarykey_and_spineid.tsv with spine.tsv
+    rm(joinpath(outdir, "output", "spine_primarykey_and_spineid.tsv"))
+    rm(tmpdir; recursive=true)
 
     @info "$(now()) Finished spine construction"
-    cfg.output_directory
+    outdir
 end
 
 """

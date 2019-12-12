@@ -5,7 +5,6 @@ export combine_linkage_configs
 using Dates
 using Logging
 using Schemata
-using YAML
 
 using ..config
 using ..utils
@@ -31,45 +30,26 @@ function combine_linkage_configs(projectname::String, output_directory::String, 
     !isdir(output_directory) && error("Output directory does not exist.")
     fname, ext  = splitext(outfile)
     outfile     = in(ext, Set([".yaml", ".yml"])) ? outfile : "$(fname).yml"
-
-    # HACK: Use Symbols so that the YAML writer doesn't quote the corresponding strings, which causes an error when the written YAML file is read back in.
-    projectname      = Symbol(projectname)
-    output_directory = Symbol(output_directory)
-    spine_datafile   = Symbol(spine_datafile)
-    spine_schemafile = Symbol(spine_schemafile)
-
-    # Construct components
-    tables      = Dict{Symbol, Dict{Symbol, Symbol}}()  # tablename => Dict("datafile" => datafile, "schemafile" => schemafile)
-    criteria    = Dict{String, Any}[]
     spineschema = readschema(String(spine_schemafile))
+    spine       = config.TableConfig(spine_datafile, spine_schemafile)
+    tables      = Dict{String, config.TableConfig}()
+    criteria    = Vector{LinkageCriteria}[]
     for linkagefile in linkagefiles
         @info "$(now()) Combining config $(linkagefile)"
-        cfg   = spine_construction_config(linkagefile)
-        d_cfg = YAML.load_file(linkagefile)
-        tablename, tableconfig = first(d_cfg["tables"])
-        tablename = Symbol(tablename)
-        #push!(tables, tablename => tableconfig)
-        push!(tables, tablename => Dict(:datafile => Symbol(tableconfig["datafile"]), :schemafile => Symbol(tableconfig["schemafile"])))
-        for criterion in cfg.criteria[1]  # cfg.criteria isa Vector{LinkageCriteria}
-            !criterion_cols_are_in_spineschema(criterion, spineschema) && continue
-            d = Dict{String, Any}()
-            d["tablename"]   = tablename
-            d["exactmatch"]  = criterion.exactmatch  # Dict{Symbol, Symbol}
-            if !isempty(criterion.approxmatch)
-                d["approxmatch"] = [Dict(fieldname => getfield(obj, fieldname) for fieldname in fieldnames(typeof(obj))) for obj in criterion.approxmatch]
-            end
-            push!(criteria, d)
+        cfg = spine_construction_config(linkagefile)
+        for (tablename, tableconfig) in cfg.tables
+            tables[tablename] = tableconfig
         end
+        v = LinkageCriteria[]
+        for criterion in cfg.criteria[1]  # cfg.criteria[1] isa Vector{LinkageCriteria}
+            !criterion_cols_are_in_spineschema(criterion, spineschema) && continue
+            push!(v, criterion)
+        end
+        isempty(v) && continue
+        push!(criteria, v)
     end
-
-    # Construct result
-    result = Dict{String, Any}()
-    result["projectname"] = projectname
-    result["output_directory"] = output_directory
-    result["spine"]    = Dict("datafile" => spine_datafile, "schemafile" => spine_schemafile)
-    result["tables"]   = tables
-    result["criteria"] = criteria
-    YAML.write_file(outfile, result)
+    cfg = LinkageCriteria(projectname, output_directory, spine, tables, criteria)
+    writeconfig(outfile, cfg)
     @info "$(now()) Finished combine_spine_construction_configs"
 end
 

@@ -47,6 +47,7 @@ function combine_spine_construction_configs(projectname::String, output_director
         cfg = spine_construction_config(linkagefile)
         for criterion in cfg.criteria[1]  # cfg.criteria isa Vector{LinkageCriteria}
             !criterion_cols_are_in_spineschema(criterion, spineschema) && continue
+            #TODO: Make this code consistent with combine_linkage_configurations
             d = Dict{String, Any}()
             d["tablename"]   = tablename
             d["exactmatch"]  = criterion.exactmatch  # Dict{Symbol, Symbol}

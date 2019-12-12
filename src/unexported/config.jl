@@ -1,6 +1,6 @@
 module config
 
-export LinkageConfig, LinkageCriteria, ApproxMatch, spine_construction_config
+export LinkageConfig, LinkageCriteria, ApproxMatch, spine_construction_config, writeconfig
 
 using Dates
 using Schemata
@@ -16,6 +16,7 @@ schema:   Schema for the data.
 """
 struct TableConfig
     datafile::String
+    schemafile::String
     schema::TableSchema
 end
 
@@ -24,7 +25,7 @@ function TableConfig(name::String, spec::Dict)
     !isfile(spec["schemafile"]) && error("The schema file for the $(name) table does not exist.")
     schema_dict = YAML.load_file(spec["schemafile"])
     schema      = TableSchema(schema_dict)
-    TableConfig(spec["datafile"], schema)
+    TableConfig(spec["datafile"], spec["schemafile"], schema)
 end
 
 ################################################################################
@@ -152,6 +153,38 @@ function spine_construction_config(configfile::String)
     d["spine"]["datafile"]   != data_config["datafile"]   && error("Config for spine construction requires the data table's data file to be the same as the spine's data file.")
     d["spine"]["schemafile"] != data_config["schemafile"] && error("Config for spine construction requires the data table's schema file to be the same as the spine's schema file.")
     LinkageConfig(d, "spineconstruction")
+end
+
+function writeconfig(outfile::String, cfg::LinkageConfig)
+    d = Dict{String, Any}()
+    d["projectname"] = Symbol(projectname)
+    d["output_directory"] = Symbol(output_directory)
+    d["spine"]    = Dict("datafile" => Symbol(cfg.spine.datafile), "schemafile" => Symbol(cfg.spine.schemafile))
+    d["tables"]   = Dict(tablename => dictify(tableconfig) for (tablename, tableconfig) in cfg.tables)
+    d["criteria"] = dictify(cfg.criteria)
+    YAML.write_file(outfile, d)
+end
+
+dictify(tableconfig::TableConfig) = Dict("datafile" => Symbol(tableconfig.datafile), "schemafile" => Symbol(tableconfig.schemafile))
+
+function dictify(v::Vector{Vector{LinkageCriteria}})
+    d = Dict{Int, Dict{String, Any}}()  # lc.id => dictified(lc)
+    for v2 in v
+        for lc in v2
+            d[lc.id] = dictify(lc)
+        end
+    end
+    ids = sort!(collect(keys(d)))
+    [d[id] for id in ids]
+end
+
+function dictify(criteria::LinkageCriteria)
+    d = Dict{String, Any}()
+    d["tablename"]   = Symbol(criteria.tablename)
+    d["exactmatch"]  = criteria.exactmatch  # Dict{Symbol, Symbol}
+    isempty(criteria.approxmatch) && return d
+    d["approxmatch"] = [Dict(fieldname => getfield(obj, fieldname) for fieldname in fieldnames(typeof(obj))) for obj in criterion.approxmatch]
+    d
 end
 
 end
