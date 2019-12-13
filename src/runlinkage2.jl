@@ -2,8 +2,8 @@
 Notes:
 - Usually we want to retain more than the intersection of columns of the input tables, but less than the union of columns.
   E.g., A table may contain name and DOB, another table may contain name, address and social security number,
-  and both tables may also contain other episode-level data such as timestamps and service locations.
-  We want to retain the entity-level data (name, DOB, address and social security number) and not the the episode-level data.
+  and both tables may also contain other event-level data such as timestamps and service locations.
+  We want to retain the entity-level data (name, DOB, address and social security number) and not the event-level data.
   Therefore we require a schema for the spine so that the desired columns are explicitly specified.
 """
 module runlinkage
@@ -61,7 +61,7 @@ function run_linkage(configfile::String)
 
         # Run the data through each linkage iteration
         table_infile = cfg.tables[tablename].datafile
-        link_table_to_spine(spine, spine_primarykey, table_infile, table_outfile, tableschema, tablecriteria)
+        link_table_to_spine!(spine, spine_primarykey, table_infile, table_outfile, tableschema, tablecriteria)
     end
 
     @info "$(now()) Writing spine to the output directory"
@@ -82,8 +82,9 @@ function init_data(tableschema::TableSchema, n::Int)
     DataFrame(coltypes, colnames, n)
 end
 
-function link_table_to_spine(spine::DataFrame, spine_primarykey::Vector{Symbol},
-                             table_infile::String, table_outfile::String, tableschema::TableSchema, tablecriteria::Vector{LinkageCriteria})
+"Modified: spine"
+function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol},
+                              table_infile::String, table_outfile::String, tableschema::TableSchema, tablecriteria::Vector{LinkageCriteria})
     data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
     i_data    = 0
     ndata     = 0
@@ -124,7 +125,7 @@ function link_table_to_spine(spine::DataFrame, spine_primarykey::Vector{Symbol},
         end
     end
     if i_data != 0  # Write remaining rows if they exist
-        CSV.write(table_outfile, data[1:i_data, :]; append=true, delim='\t')
+        CSV.write(table_outfile, view(data, 1:i_data, :); append=true, delim='\t')
         ndata += i_data
         @info "$(now()) Exported $(ndata) rows of table $(tablename)"
     end
@@ -197,7 +198,11 @@ function select_best_candidate(spine, candidate_indices::Vector{Int}, row, appro
     result
 end
 
-"Append the row to the spine and return the spineid of the new row."
+"""
+Modified: spine.
+
+Append the row to the spine and return the spineid of the new row.
+"""
 function append_row_to_spine!(spine, spine_primarykey, row, spinecols::Set{Symbol})
     d = Dict{Symbol, Union{Missing, String}}()
     for colname in spinecols

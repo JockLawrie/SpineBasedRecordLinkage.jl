@@ -1,5 +1,5 @@
 #=
-  Test set 1: Construct a spine from all 3 tables and link.
+  Test set 2: Construct a spine from all 3 tables and link.
 =#
 
 # Linkage
