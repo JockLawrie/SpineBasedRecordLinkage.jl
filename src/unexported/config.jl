@@ -1,6 +1,7 @@
 module config
 
-export LinkageConfig, LinkageCriteria, ApproxMatch, spine_construction_config, writeconfig
+export TableConfig, ApproxMatch, LinkageCriteria, LinkageConfig,  # Types
+       spine_construction_config, writeconfig                     # Functions
 
 using Dates
 using Schemata
@@ -18,14 +19,18 @@ struct TableConfig
     datafile::String
     schemafile::String
     schema::TableSchema
+
+    function TableConfig(datafile, schemafile, schema)
+        !isfile(datafile)   && error("The data file for the table does not exist.")
+        !isfile(schemafile) && error("The schema file for the table does not exist.")
+        new(datafile, schemafile, schema)
+    end
 end
 
-function TableConfig(name::String, spec::Dict)
-    !isfile(spec["datafile"])   && error("The data file for the $(name) table does not exist.")
-    !isfile(spec["schemafile"]) && error("The schema file for the $(name) table does not exist.")
-    schema_dict = YAML.load_file(spec["schemafile"])
+function TableConfig(datafile, schemafile)
+    schema_dict = YAML.load_file(schemafile)
     schema      = TableSchema(schema_dict)
-    TableConfig(spec["datafile"], spec["schemafile"], schema)
+    TableConfig(datafile, schemafile, schema)
 end
 
 ################################################################################
@@ -116,8 +121,8 @@ function LinkageConfig(d::Dict, purpose::String)
     dttm        = replace(dttm, "-" => ".")
     dttm        = replace(dttm, ":" => ".")
     outdir      = joinpath(d["output_directory"], "$(purpose)-$(projectname)-$(dttm)")
-    spine       = TableConfig("spine", d["spine"])
-    tables      = Dict(tablename => TableConfig(tablename, tableconfig) for (tablename, tableconfig) in d["tables"])
+    spine       = TableConfig(d["spine"]["datafile"], d["spine"]["schemafile"])
+    tables      = Dict(tablename => TableConfig(tableconfig["datafile"], tableconfig["schemafile"]) for (tablename, tableconfig) in d["tables"])
 
     # Criteria: retains original order but grouped by tablename for computational convenience
     criteria      = Vector{LinkageCriteria}[]
@@ -157,8 +162,8 @@ end
 
 function writeconfig(outfile::String, cfg::LinkageConfig)
     d = Dict{String, Any}()
-    d["projectname"] = Symbol(projectname)
-    d["output_directory"] = Symbol(output_directory)
+    d["projectname"] = Symbol(cfg.projectname)
+    d["output_directory"] = Symbol(cfg.output_directory)
     d["spine"]    = Dict("datafile" => Symbol(cfg.spine.datafile), "schemafile" => Symbol(cfg.spine.schemafile))
     d["tables"]   = Dict(tablename => dictify(tableconfig) for (tablename, tableconfig) in cfg.tables)
     d["criteria"] = dictify(cfg.criteria)
@@ -183,7 +188,7 @@ function dictify(criteria::LinkageCriteria)
     d["tablename"]   = Symbol(criteria.tablename)
     d["exactmatch"]  = criteria.exactmatch  # Dict{Symbol, Symbol}
     isempty(criteria.approxmatch) && return d
-    d["approxmatch"] = [Dict(fieldname => getfield(obj, fieldname) for fieldname in fieldnames(typeof(obj))) for obj in criterion.approxmatch]
+    d["approxmatch"] = [Dict(fieldname => getfield(obj, fieldname) for fieldname in fieldnames(typeof(obj))) for obj in criteria.approxmatch]
     d
 end
 

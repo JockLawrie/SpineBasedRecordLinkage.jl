@@ -28,5 +28,5 @@ notifications = DataFrame(CSV.File(joinpath("data", "notifiable_disease_reports.
 # Test sets
 cleanup()
 include("testset1.jl")   # Construct spine from 1 data set
-include("testset2.jl")   # Construct spine from multiple data sets using the intersection of columns
+#include("testset2.jl")   # Construct spine from multiple data sets using the intersection of columns
 #include("testset3.jl")  # Construct spine from multiple data sets using the union of columns

@@ -42,8 +42,8 @@ Notes:
 cfg         = SpineBasedRecordLinkage.LinkageConfig(joinpath("config", "constructspine_admissions.yml"))
 spineconfig = SpineBasedRecordLinkage.config.TableConfig(joinpath(outdir2, "output", "spine.tsv"), cfg.spine.schema)
 newconfig   = SpineBasedRecordLinkage.LinkageConfig(cfg.projectname, cfg.output_directory, spineconfig, cfg.tables, cfg.criteria)
-outdir2 = run_linkage(newconfig, joinpath("config", "constructspine_admissions.yml"))
-@test 1 == 2  # Deliberate fail
+outdir22 = run_linkage(newconfig, joinpath("config", "constructspine_admissions.yml"))
+#@test 1 == 2  # Deliberate fail
 ######################
 
 ################################################################################

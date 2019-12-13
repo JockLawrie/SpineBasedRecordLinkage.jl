@@ -40,7 +40,7 @@ function construct_spine(configfile::String)
     spinerows = [rowindices[1] for rowindices in mc]  # Reduce each group to 1 row by selecting the first row (arbitrary choice)
     spine     = data[spinerows, :]
     utils.append_spineid!(spine, cfg.spine.schema.primarykey)
-    spine     = spine[:, vcat(:spineID, names(spine))]
+    spine     = spine[:, vcat(:spineID, names(data))]
 
     @info "$(now()) Writing the spine to a temporary directory"
     tmpdir    = mktempdir(dirname(cfg.output_directory))
@@ -49,9 +49,10 @@ function construct_spine(configfile::String)
     spine     = ""  # Enable GC to be triggered
 
     @info "Constructing a linkage config that uses the spine"
-    spineconfig = config.TableConfig(spinefile, cfg.spine.schema)
-    newcfg      = LinkageConfig(cfg.projectname, cfg.output_directory, spineconfig, cfg.tables, cfg.criteria)
-    writeconfig(joinpath(tmpdir, "constructspine.yml"), newcfg)
+    spineconfig = TableConfig(spinefile, cfg.spine.schemafile, cfg.spine.schema)
+    newcfg      = LinkageConfig(cfg.projectname, dirname(cfg.output_directory), spineconfig, cfg.tables, cfg.criteria)
+    newcfg_file = joinpath(tmpdir, "constructspine.yml")
+    writeconfig(newcfg_file, newcfg)
 
     @info "Linking data to the spine"
     outdir = run_linkage(newcfg_file)
