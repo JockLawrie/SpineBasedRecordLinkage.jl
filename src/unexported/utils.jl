@@ -84,6 +84,12 @@ function construct_table_indexes(criteria::Vector{LinkageCriteria}, spine)
     result
 end
 
+"Update the TableIndex with table[i, :]"
+function update!(tableindex::TableIndex, table, i::Int)
+    k = Tuple(table[i, tableindex.colnames])
+    TableIndexes.update!(tableindex.index, k, i)
+end
+
 "Returns: true if row[colnames] includes a missing value."
 function constructkey!(result::Vector{String}, row, colnames::Vector{Symbol})
     for (j, colname) in enumerate(colnames)  # Populate result with the row's values of tableindex.colnames (iteration.exactmatches)

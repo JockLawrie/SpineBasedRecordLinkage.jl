@@ -12,24 +12,26 @@ using ..distances
 ################################################################################
 
 """
-datafile: The complete path to the data file.
-schema:   Schema for the data.
+datafile:   The complete path to the data file.
+            If datafile is nothing, then the spine is constructed as part of the run_linkage function.
+schemafile: The complete path to the schema file.
+schema:     The TableSchema for the data, specified in the schema file.
 """
 struct TableConfig
-    datafile::String
+    datafile::Union{Nothing, String}
     schemafile::String
     schema::TableSchema
 
     function TableConfig(datafile, schemafile, schema)
-        !isfile(datafile)   && error("The data file for the table does not exist.")
+        !isnothing(datafile) && !isfile(datafile) && error("The data file for the table does not exist.")
         !isfile(schemafile) && error("The schema file for the table does not exist.")
         new(datafile, schemafile, schema)
     end
 end
 
 function TableConfig(datafile, schemafile)
-    schema_dict = YAML.load_file(schemafile)
-    schema      = TableSchema(schema_dict)
+    d      = YAML.load_file(schemafile)
+    schema = TableSchema(d)
     TableConfig(datafile, schemafile, schema)
 end
 
@@ -121,7 +123,8 @@ function LinkageConfig(d::Dict, purpose::String)
     dttm        = replace(dttm, "-" => ".")
     dttm        = replace(dttm, ":" => ".")
     outdir      = joinpath(d["output_directory"], "$(purpose)-$(projectname)-$(dttm)")
-    spine       = TableConfig(d["spine"]["datafile"], d["spine"]["schemafile"])
+    spinedata   = d["spine"]["datafile"] == "" ? nothing : d["spine"]["datafile"]
+    spine       = TableConfig(spinedata, d["spine"]["schemafile"])
     tables      = Dict(tablename => TableConfig(tableconfig["datafile"], tableconfig["schemafile"]) for (tablename, tableconfig) in d["tables"])
 
     # Criteria: retains original order but grouped by tablename for computational convenience

@@ -32,13 +32,17 @@ function TableIndex(table::T1, colnames::Vector{Symbol}) where {T1}
             row1[j] = getproperty(row, colname)
         end
         k = Tuple(row1)
-        if !haskey(index, k)
-            index[k] = [i]
-        else
-            push!(index[k], i)
-        end
+        update!(index, k, i)
     end
     TableIndex{T1, T2}(table, colnames, index)
+end
+
+function update!(index, k, i)
+    if !haskey(index, k)
+        index[k] = [i]
+    else
+        push!(index[k], i)
+    end
 end
 
 "Returns: Vector of row indices for which table[result, colnames] == k"
