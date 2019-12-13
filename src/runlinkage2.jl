@@ -6,7 +6,7 @@ Notes:
   We want to retain the entity-level data (name, DOB, address and social security number) and not the the episode-level data.
   Therefore we require a schema for the spine so that the desired columns are explicitly specified.
 """
-module runlinkage2
+module runlinkage
 
 export run_linkage
 
@@ -89,11 +89,12 @@ function link_table_to_spine(spine::DataFrame, spine_primarykey::Vector{Symbol},
     ndata     = 0
     nlinks    = 0
     tablename = tableschema.name
+    spinecols = Set(names(spine))
     data_primarykey  = tableschema.primarykey
     criteriaid2index = utils.construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
     criteriaid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
     for row in CSV.Rows(table_infile; reusebuffer=true)
-        # Store primary key
+        # Store data primary key
         i_data += 1
         data[i_data, :spineID]    = missing
         data[i_data, :criteriaID] = missing
@@ -102,30 +103,16 @@ function link_table_to_spine(spine::DataFrame, spine_primarykey::Vector{Symbol},
         end
 
         # Link the row to the spine using the first LinkageCriteria that are satisfied (if any)
-        for linkagecriteria in tablecriteria
-            # Construct a Tuple of values from row and linkagecriteria.exactmatch
-            criteriaid = linkagecriteria.id
-            tableindex = criteriaid2index[criteriaid]
-            hasmissing = utils.constructkey!(criteriaid2key[criteriaid], row, tableindex.colnames)
-            hasmissing && continue  # datarow[colnames] includes a missing value
-            k = Tuple(criteriaid2key[criteriaid])
+        nlinks = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
 
-            # Identify the spine reocrd that best matches the row (if it exists)
-            if !haskey(tableindex.index, k)  # Row doesn't match any spine records on linkagecriteria.exactmatch
-                spineid = append_row_to_spine!(spine, spine_primarykey, row)  # Create a new spine record
-                update!(tableindex, spine, size(spine, 1))  # Update the tableindex
-            else                             # There are several spine records that satisfy the exactmatch criteria...select the best one
-                candidate_indices = tableindex.index[k]
-                spineid, i_spine = select_best_candidate(spine, candidate_indices, row, linkagecriteria.approxmatch)
-                spineid == 0 && continue        # None of the candidates satisfy the approxmatch criteria
-                mergerow!(row, spine, i_spine)  # Merge data from row into spine[i_spine, :]
+        # If row is unlinked, append it to the spine, update the TableIndexes and link
+        if ismissing(data[i_data, :spineID])
+            append_row_to_spine!(spine, spine_primarykey, row, spinecols)  # Create a new spine record
+            for linkagecriteria in tablecriteria
+                tableindex = criteriaid2index[linkagecriteria.id]
+                utils.update!(tableindex, spine, size(spine, 1))  # Update the tableindex
             end
-
-            # Create a link between the spine and the data
-            nlinks += 1
-            data[i_data, :spineID]    = spineid
-            data[i_data, :criteriaID] = criteriaid
-            break  # Row has been linked, no need to link on other criteria
+            nlinks = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
         end
 
         # If data is full, write to disk
@@ -142,6 +129,39 @@ function link_table_to_spine(spine::DataFrame, spine_primarykey::Vector{Symbol},
         @info "$(now()) Exported $(ndata) rows of table $(tablename)"
     end
     @info "$(now()) $(nlinks) rows of table $(tablename) were linked to the spine."
+end
+
+"""
+Modified: data[i_data, :]
+
+Link the row to the spine using the first LinkageCriteria that are satisfied (if any).
+"""
+function link_row_to_spine!(data, i_data::Int, row, spine, tablecriteria::Vector{LinkageCriteria},
+                            criteriaid2index, criteriaid2key, nlinks::Int, spinecols::Set{Symbol})
+    for linkagecriteria in tablecriteria
+        # Identify the spine records that match the row on linkagecriteria.exactmatch
+        criteriaid = linkagecriteria.id
+        tableindex = criteriaid2index[criteriaid]
+        hasmissing = utils.constructkey!(criteriaid2key[criteriaid], row, tableindex.colnames)
+        hasmissing && continue  # datarow[tableindex.colnames] includes a missing value
+        k = Tuple(criteriaid2key[criteriaid])
+        !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on linkagecriteria.exactmatch
+        candidate_indices = tableindex.index[k]
+
+        # Identify the spine record that best matches the row (if it exists)
+        spineid, i_spine = select_best_candidate(spine, candidate_indices, row, linkagecriteria.approxmatch)
+        spineid == 0 && continue  # None of the candidates satisfy the approxmatch criteria
+
+        # Merge data from row into spine[i_spine, :]
+        mergerow!(row, spine, i_spine, spinecols)
+
+        # Create a link between the spine and the data
+        nlinks += 1
+        data[i_data, :spineID]    = spineid
+        data[i_data, :criteriaID] = criteriaid
+        break  # Row has been linked, no need to link on other criteria
+    end
+    nlinks
 end
 
 function select_best_candidate(spine, candidate_indices::Vector{Int}, row, approxmatches::Vector{ApproxMatch})
@@ -178,17 +198,12 @@ function select_best_candidate(spine, candidate_indices::Vector{Int}, row, appro
 end
 
 "Append the row to the spine and return the spineid of the new row."
-function append_row_to_spine!(spine, spine_primarykey, row)
-    # Push row without spineid
+function append_row_to_spine!(spine, spine_primarykey, row, spinecols::Set{Symbol})
     d = Dict{Symbol, Union{Missing, String}}()
-    spine_colnames = names(spine)
-    for colname in spine_colnames
-        colname == :spineID && continue
-        d[colname] = getproperty(row, colname)
+    for colname in spinecols
+        d[colname] = hasproperty(row, colname) ? getproperty(row, colname) : missing
     end
     push!(spine, d)
-
-    # Populate spineid for the new row
     i = size(spine, 1)
     spine[i, :spineID] = hash(spine[i, spine_primarykey])
 end
@@ -198,12 +213,12 @@ Merge data from row into spine[i, :].
 
 Currently row[column] is written to spine[i, column] if the latter is missing.
 """
-function mergerow!(row, spine, i)
+function mergerow!(row, spine, i, spinecols::Set{Symbol})
     for colname in propertynames(row)
+        !in(colname, spinecols) && continue
         rowval = getproperty(row, colname)
         ismissing(rowval) && continue
-        spineval = spine[i, colname]
-        if ismissing(spineval)
+        if ismissing(spine[i, colname])
             spine[i, colname] = rowval
         end
     end

@@ -54,7 +54,7 @@ function report_on_linkage_runs(directory1::String, directory2::String, outfile:
     filelist  = sort!([x for x in filelist])
     for filename in filelist
         filename == "criteria.tsv" && continue
-        tablename = filename == "spine_primarykey_and_spineid.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
+        tablename = filename == "spine.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
         @info "$(now()) Reporting results for table $(tablename)"
         fullpath1 = joinpath(outdir1, filename)
         fullpath2 = joinpath(outdir2, filename)

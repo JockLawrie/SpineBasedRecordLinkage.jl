@@ -20,13 +20,8 @@ function cleanup()
     end
 end
 
-# Input data
-emergencies   = DataFrame(CSV.File(joinpath("data", "emergency_presentations.csv")))
-admissions    = DataFrame(CSV.File(joinpath("data", "hospital_admissions.csv")))
-notifications = DataFrame(CSV.File(joinpath("data", "notifiable_disease_reports.csv")))
-
 # Test sets
 cleanup()
-include("testset1.jl")   # Construct spine from 1 data set
+#include("testset1.jl")   # Construct spine from 1 data set
 #include("testset2.jl")   # Construct spine from multiple data sets using the intersection of columns
-#include("testset3.jl")  # Construct spine from multiple data sets using the union of columns
+include("testset3.jl")
