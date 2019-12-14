@@ -5,8 +5,8 @@ export run_linkage, summarise_linkage_run, compare_linkage_runs
 #=
 TODO:
 1. Minimise code, exports and dependencies. Revert dependencies to their release versions.
-2. rename testset3 to testset2, and remove old testset2.
-3. Test a linkage with 2 tables and compare the linkage runs from the 2 test sets.
+2. rename testset3 to testset2, rename testset4 to testset1, remove other testsets.
+3. testset5 (to be named testset3) compares the 2 linage runs.
 
 Issue: Merging a row into the spine may alter the primary key and therefore the spineid.
        Update the spineid and all links involving this row.

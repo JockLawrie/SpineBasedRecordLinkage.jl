@@ -61,7 +61,7 @@ function run_linkage(configfile::String)
 
         # Run the data through each linkage iteration
         table_infile = cfg.tables[tablename].datafile
-        link_table_to_spine!(spine, spine_primarykey, table_infile, table_outfile, tableschema, tablecriteria)
+        link_table_to_spine!(spine, spine_primarykey, cfg.append_to_spine, table_infile, table_outfile, tableschema, tablecriteria)
     end
 
     @info "$(now()) Writing spine to the output directory"
@@ -83,7 +83,7 @@ function init_data(tableschema::TableSchema, n::Int)
 end
 
 "Modified: spine"
-function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol},
+function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}, append_to_spine::Bool,
                               table_infile::String, table_outfile::String, tableschema::TableSchema, tablecriteria::Vector{LinkageCriteria})
     data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
     i_data    = 0
@@ -107,7 +107,7 @@ function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}
         nlinks = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
 
         # If row is unlinked, append it to the spine, update the TableIndexes and link
-        if ismissing(data[i_data, :spineID])
+        if append_to_spine && ismissing(data[i_data, :spineID])
             append_row_to_spine!(spine, spine_primarykey, row, spinecols)  # Create a new spine record
             for linkagecriteria in tablecriteria
                 tableindex = criteriaid2index[linkagecriteria.id]

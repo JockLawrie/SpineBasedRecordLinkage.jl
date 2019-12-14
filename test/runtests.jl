@@ -24,4 +24,6 @@ end
 cleanup()
 #include("testset1.jl")   # Construct spine from 1 data set
 #include("testset2.jl")   # Construct spine from multiple data sets using the intersection of columns
+include("testset4.jl")
 include("testset3.jl")
+cleanup()

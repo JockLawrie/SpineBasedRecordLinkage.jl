@@ -10,10 +10,23 @@ using Logging
 using ..utils
 
 "Summarise the results of a linkage run."
-summarise_linkage_run(directory1, outfile) = report_on_linkage_runs(directory1, "", outfile, 1)
+function summarise_linkage_run(directory1, outfile)
+    @info "$(now()) Starting summary of linkage run."
+    directory2 = replace("x$(rand())", "." => "")  # Dummy directory. Random so that it likely doesn't exist.
+    report_on_linkage_runs(directory1, directory2, outfile, 1)
+    dlm    = utils.get_delimiter(outfile)
+    report = DataFrame(CSV.File(outfile; delim=dlm))
+    rename!(report, :status1 => :status)
+    CSV.write(outfile, report; delim=dlm, append=false)
+    @info "$(now()) Finished summary of linkage run."
+end
 
 "Summarise a row-by-row comparison of linkage runs."
-compare_linkage_runs(directory1, directory2, outfile) = report_on_linkage_runs(directory1, directory2, outfile, 2)
+function compare_linkage_runs(directory1, directory2, outfile)
+    @info "$(now()) Starting comparison of linkage runs."
+    report_on_linkage_runs(directory1, directory2, outfile, 2)
+    @info "$(now()) Finished comparison of linkage runs."
+end
 
 """
 Report on 1 or 2 linkage runs.
@@ -42,7 +55,6 @@ The statuses are:
 When reporting on just 1 linkage run the `status2` column is omitted from the result.
 """
 function report_on_linkage_runs(directory1::String, directory2::String, outfile::String, n_linkage_runs::Int)
-    @info "$(now()) Starting comparison of linkage runs."
     run_checks(directory1, directory2, outfile, n_linkage_runs)
     dlm = utils.get_delimiter(outfile)
     init_result(Dict(("LINKAGE RUNS", directory1, directory2) => missing), outfile, dlm, n_linkage_runs)
@@ -70,7 +82,6 @@ function report_on_linkage_runs(directory1::String, directory2::String, outfile:
         end
         append_to_result(d, outfile, dlm, n_linkage_runs)
     end
-    @info "$(now()) Finished comparison of linkage runs."
 end
 
 ################################################################################

@@ -1,14 +1,14 @@
 #=
-  Test set 2: Construct a spine from all 3 tables and link.
+  Test set 2: Construct a spine from all 3 tables and link all records.
 =#
 
 # Linkage
-outdir1 = run_linkage(joinpath("config", "linkagerun2.yml"))
+outdir3 = run_linkage(joinpath("config", "linkagerun2.yml"))
 
-spine = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t'))
-ha    = DataFrame(CSV.File(joinpath(outdir1, "output", "hospital_admissions_linked.tsv"); delim='\t'))
-ep    = DataFrame(CSV.File(joinpath(outdir1, "output", "emergency_presentations_linked.tsv"); delim='\t'))
-ndr   = DataFrame(CSV.File(joinpath(outdir1, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
+spine = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t'))
+ha    = DataFrame(CSV.File(joinpath(outdir3, "output", "hospital_admissions_linked.tsv"); delim='\t'))
+ep    = DataFrame(CSV.File(joinpath(outdir3, "output", "emergency_presentations_linked.tsv"); delim='\t'))
+ndr   = DataFrame(CSV.File(joinpath(outdir3, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
 
 ha_linked  = view(ha,  .!ismissing.(ha[!,  :spineID]), :)
 ep_linked  = view(ep,  .!ismissing.(ep[!,  :spineID]), :)
@@ -32,21 +32,20 @@ ndr_linked = view(ndr, .!ismissing.(ndr[!, :spineID]), :)
 
 # Reporting
 outfile = joinpath(outdir, "linkage_report.csv")
-summarise_linkage_run(outdir1, outfile)
+summarise_linkage_run(outdir3, outfile)
 report = DataFrame(CSV.File(outfile))
-result_set = Set{NamedTuple{(:tablename, :status1, :nrecords), Tuple{String, String, Union{Missing, Int}}}}()
+result_set = Set{NamedTuple{(:tablename, :status, :nrecords), Tuple{String, String, Union{Missing, Int}}}}()
 for r in eachrow(report)
-    push!(result_set, (tablename=r[:tablename], status1=r[:status1], nrecords=r[:nrecords]))
+    push!(result_set, (tablename=r[:tablename], status=r[:status], nrecords=r[:nrecords]))
 end
 
 @test size(report, 1) == 9
-@test in((tablename="LINKAGE RUNS",               status1=outdir1,                     nrecords=missing), result_set)
-@test in((tablename="spine",                      status1="existent",                  nrecords=6), result_set)
-@test in((tablename="hospital_admissions",        status1="linked with criteria ID 1", nrecords=5), result_set)
-@test in((tablename="emergency_presentations",    status1="linked with criteria ID 2", nrecords=4), result_set)
-@test in((tablename="emergency_presentations",    status1="linked with criteria ID 3", nrecords=1), result_set)
-@test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 4", nrecords=3), result_set)
-@test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 5", nrecords=2), result_set)
-@test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 6", nrecords=1), result_set)
-@test in((tablename="notifiable_disease_reports", status1="linked with criteria ID 7", nrecords=2), result_set)
-cleanup()
+@test in((tablename="LINKAGE RUNS",               status=outdir3,                     nrecords=missing), result_set)
+@test in((tablename="spine",                      status="existent",                  nrecords=6), result_set)
+@test in((tablename="hospital_admissions",        status="linked with criteria ID 1", nrecords=5), result_set)
+@test in((tablename="emergency_presentations",    status="linked with criteria ID 2", nrecords=4), result_set)
+@test in((tablename="emergency_presentations",    status="linked with criteria ID 3", nrecords=1), result_set)
+@test in((tablename="notifiable_disease_reports", status="linked with criteria ID 4", nrecords=3), result_set)
+@test in((tablename="notifiable_disease_reports", status="linked with criteria ID 5", nrecords=2), result_set)
+@test in((tablename="notifiable_disease_reports", status="linked with criteria ID 6", nrecords=1), result_set)
+@test in((tablename="notifiable_disease_reports", status="linked with criteria ID 7", nrecords=2), result_set)

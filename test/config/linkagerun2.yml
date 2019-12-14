@@ -1,6 +1,7 @@
 projectname: testing
 output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "", schemafile: "schema/spine.yml"}
+append_to_spine: true
 tables:
     hospital_admissions:        {datafile: "data/hospital_admissions.csv",        schemafile: "schema/hospital_admissions.yml"}
     emergency_presentations:    {datafile: "data/emergency_presentations.csv",    schemafile: "schema/emergency_presentations.yml"}

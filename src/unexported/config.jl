@@ -99,6 +99,8 @@ end
 """
 output_directory: A directory created specifically for the linkage run. It contains all output.
 spine:            TableConfig for the spine.
+append_to_spine:  If true then unlinked rows are appended to the spine and linked.
+                  If false then unlinked rows are left unlinked.
 tables:           Dict of (tablename, TableConfig) pairs, with 1 pair for each data table.
 criteria:         Vector{Vector{LinkageCriteria}}, where criteria[i] = [criteria for a table i].
 """
@@ -106,6 +108,7 @@ struct LinkageConfig
     projectname::String
     output_directory::String
     spine::TableConfig
+    append_to_spine::Bool
     tables::Dict{String, TableConfig}
     criteria::Vector{Vector{LinkageCriteria}}  # iterations[i] = [iterations for a table i]
 end
@@ -125,6 +128,7 @@ function LinkageConfig(d::Dict, purpose::String)
     outdir      = joinpath(d["output_directory"], "$(purpose)-$(projectname)-$(dttm)")
     spinedata   = d["spine"]["datafile"] == "" ? nothing : d["spine"]["datafile"]
     spine       = TableConfig(spinedata, d["spine"]["schemafile"])
+    append_to_spine = d["append_to_spine"]
     tables      = Dict(tablename => TableConfig(tableconfig["datafile"], tableconfig["schemafile"]) for (tablename, tableconfig) in d["tables"])
 
     # Criteria: retains original order but grouped by tablename for computational convenience
@@ -140,7 +144,7 @@ function LinkageConfig(d::Dict, purpose::String)
         criterionid += 1
         push!(criteria[tablename2idx[tablename]], LinkageCriteria(criterionid, x))
     end
-    LinkageConfig(projectname, outdir, spine, tables, criteria)
+    LinkageConfig(projectname, outdir, spine, append_to_spine, tables, criteria)
 end
 
 """
