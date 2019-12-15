@@ -1,17 +1,17 @@
-projectname: testing
+projectname: emergencies-link
 output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
-spine: {datafile: "", schemafile: "schema/spine.yml"}
-append_to_spine: true
+spine: {datafile: "output/spine.tsv", schemafile: "schema/emergency_presentations.yml"}
+append_to_spine: false
 tables:
-    hospital_admissions:        {datafile: "data/hospital_admissions.csv",        schemafile: "schema/hospital_admissions.yml"}
     emergency_presentations:    {datafile: "data/emergency_presentations.csv",    schemafile: "schema/emergency_presentations.yml"}
+    hospital_admissions:        {datafile: "data/hospital_admissions.csv",        schemafile: "schema/hospital_admissions.yml"}
     notifiable_disease_reports: {datafile: "data/notifiable_disease_reports.csv", schemafile: "schema/notifiable_disease_reports.yml"}
 criteria:
-    - {tablename: hospital_admissions,     exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: emergency_presentations, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: emergency_presentations, exactmatch: {birthdate: birthdate},
                                            approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3},
                                                          {datacolumn: lastname,  spinecolumn: lastname,  distancemetric: levenshtein, threshold: 0.3}]}
+    - {tablename: hospital_admissions, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
     - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, birthdate: birthdate},

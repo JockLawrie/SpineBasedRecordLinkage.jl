@@ -3,12 +3,12 @@
 =#
 
 # Linkage
-outdir3 = run_linkage(joinpath("config", "linkagerun2.yml"))
+outdir2 = run_linkage(joinpath("config", "link_all_tables.yml"))
 
-spine = DataFrame(CSV.File(joinpath(outdir3, "output", "spine.tsv"); delim='\t'))
-ha    = DataFrame(CSV.File(joinpath(outdir3, "output", "hospital_admissions_linked.tsv"); delim='\t'))
-ep    = DataFrame(CSV.File(joinpath(outdir3, "output", "emergency_presentations_linked.tsv"); delim='\t'))
-ndr   = DataFrame(CSV.File(joinpath(outdir3, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
+spine = DataFrame(CSV.File(joinpath(outdir2, "output", "spine.tsv"); delim='\t'))
+ha    = DataFrame(CSV.File(joinpath(outdir2, "output", "hospital_admissions_linked.tsv"); delim='\t'))
+ep    = DataFrame(CSV.File(joinpath(outdir2, "output", "emergency_presentations_linked.tsv"); delim='\t'))
+ndr   = DataFrame(CSV.File(joinpath(outdir2, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
 
 ha_linked  = view(ha,  .!ismissing.(ha[!,  :spineID]), :)
 ep_linked  = view(ep,  .!ismissing.(ep[!,  :spineID]), :)
@@ -32,7 +32,7 @@ ndr_linked = view(ndr, .!ismissing.(ndr[!, :spineID]), :)
 
 # Reporting
 outfile = joinpath(outdir, "linkage_report.csv")
-summarise_linkage_run(outdir3, outfile)
+summarise_linkage_run(outdir2, outfile)
 report = DataFrame(CSV.File(outfile))
 result_set = Set{NamedTuple{(:tablename, :status, :nrecords), Tuple{String, String, Union{Missing, Int}}}}()
 for r in eachrow(report)
@@ -40,7 +40,7 @@ for r in eachrow(report)
 end
 
 @test size(report, 1) == 9
-@test in((tablename="LINKAGE RUNS",               status=outdir3,                     nrecords=missing), result_set)
+@test in((tablename="LINKAGE RUNS",               status=outdir2,                     nrecords=missing), result_set)
 @test in((tablename="spine",                      status="existent",                  nrecords=6), result_set)
 @test in((tablename="hospital_admissions",        status="linked with criteria ID 1", nrecords=5), result_set)
 @test in((tablename="emergency_presentations",    status="linked with criteria ID 2", nrecords=4), result_set)

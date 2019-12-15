@@ -22,6 +22,7 @@ end
 
 # Test sets
 cleanup()
-include("testset1.jl")   # Construct spine from 1 data set
-include("testset2.jl")   # Construct spine from multiple data sets
+include("testset1.jl")  # Construct spine from 1 data set
+include("testset2.jl")  # Construct spine from multiple data sets
+include("testset3.jl")  # Compare the results from test sets 1 and 2
 cleanup()

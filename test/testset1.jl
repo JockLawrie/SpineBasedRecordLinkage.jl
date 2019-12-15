@@ -3,16 +3,16 @@
 =#
 
 # Construct spine
-outdir1 = run_linkage(joinpath("config", "constructspine_emergencies.yml"))
-spine   = DataFrame(CSV.File(joinpath(outdir1, "output", "spine.tsv"); delim='\t'))
+outdir1a = run_linkage(joinpath("config", "constructspine_emergencies.yml"))
+spine    = DataFrame(CSV.File(joinpath(outdir1a, "output", "spine.tsv"); delim='\t'))
 @test size(spine, 1) == 3
 
 # Linkage
-cp(joinpath(outdir1, "output", "spine.tsv"), joinpath(outdir, "spine.tsv"); force=true)
-outdir2 = run_linkage(joinpath("config", "linkagerun1.yml"))
-ep      = DataFrame(CSV.File(joinpath(outdir2, "output", "emergency_presentations_linked.tsv"); delim='\t'))
-ha      = DataFrame(CSV.File(joinpath(outdir2, "output", "hospital_admissions_linked.tsv"); delim='\t'))
-ndr     = DataFrame(CSV.File(joinpath(outdir2, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
+cp(joinpath(outdir1a, "output", "spine.tsv"), joinpath(outdir, "spine.tsv"); force=true)
+outdir1b = run_linkage(joinpath("config", "link_to_emergencies.yml"))
+ep       = DataFrame(CSV.File(joinpath(outdir1b, "output", "emergency_presentations_linked.tsv"); delim='\t'))
+ha       = DataFrame(CSV.File(joinpath(outdir1b, "output", "hospital_admissions_linked.tsv"); delim='\t'))
+ndr      = DataFrame(CSV.File(joinpath(outdir1b, "output", "notifiable_disease_reports_linked.tsv"); delim='\t'))
 
 ep_linked  = view(ep,  .!ismissing.(ep[!,  :spineID]), :)
 ha_linked  = view(ha,  .!ismissing.(ha[!,  :spineID]), :)
@@ -33,7 +33,7 @@ ndr_linked = view(ndr, .!ismissing.(ndr[!, :spineID]), :)
 
 # Reporting
 outfile = joinpath(outdir, "linkage_report.csv")
-summarise_linkage_run(outdir2, outfile)
+summarise_linkage_run(outdir1b, outfile)
 report = DataFrame(CSV.File(outfile))
 result_set = Set{NamedTuple{(:tablename, :status, :nrecords), Tuple{String, String, Union{Missing, Int}}}}()
 for r in eachrow(report)
@@ -41,7 +41,7 @@ for r in eachrow(report)
 end
 
 @test size(report, 1) == 11
-@test in((tablename="LINKAGE RUNS",               status=outdir2,                     nrecords=missing), result_set)
+@test in((tablename="LINKAGE RUNS",               status=outdir1b,                     nrecords=missing), result_set)
 @test in((tablename="spine",                      status="existent",                  nrecords=3), result_set)
 @test in((tablename="emergency_presentations",    status="linked with criteria ID 1", nrecords=4), result_set)
 @test in((tablename="emergency_presentations",    status="linked with criteria ID 2", nrecords=1), result_set)

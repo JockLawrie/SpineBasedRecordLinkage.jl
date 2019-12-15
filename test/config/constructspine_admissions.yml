@@ -1,7 +1,0 @@
-projectname: admissions
-output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
-spine: {datafile: "data/hospital_admissions.csv", schemafile: "schema/hospital_admissions.yml"}
-tables:
-    hospital_admissions : {datafile: "data/hospital_admissions.csv", schemafile: "schema/hospital_admissions.yml"}
-criteria:
-    - {tablename: hospital_admissions, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
