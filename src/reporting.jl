@@ -7,14 +7,16 @@ using DataFrames
 using Dates
 using Logging
 
-using ..utils
-
 "Summarise the results of a linkage run."
 function summarise_linkage_run(directory1, outfile)
     @info "$(now()) Starting summary of linkage run."
     directory2 = replace("x$(rand())", "." => "")  # Dummy directory. Random so that it likely doesn't exist.
+    for i = 1:1_000_000
+        !isdir(directory2) && break  # Directory doesn't exist...break
+        directory2 = replace("x$(rand())", "." => "")
+    end
     report_on_linkage_runs(directory1, directory2, outfile, 1)
-    dlm    = utils.get_delimiter(outfile)
+    dlm    = get_delimiter(outfile)
     report = DataFrame(CSV.File(outfile; delim=dlm))
     rename!(report, :status1 => :status)
     CSV.write(outfile, report; delim=dlm, append=false)
@@ -56,7 +58,7 @@ When reporting on just 1 linkage run the `status2` column is omitted from the re
 """
 function report_on_linkage_runs(directory1::String, directory2::String, outfile::String, n_linkage_runs::Int)
     run_checks(directory1, directory2, outfile, n_linkage_runs)
-    dlm = utils.get_delimiter(outfile)
+    dlm = get_delimiter(outfile)
     init_result(Dict(("LINKAGE RUNS", directory1, directory2) => missing), outfile, dlm, n_linkage_runs)
     outdir1   = joinpath(directory1, "output")
     outdir2   = joinpath(directory2, "output")
@@ -171,7 +173,13 @@ function run_checks(directory1::String, directory2::String, outfile::String, n_l
     else
         push!(msgs, "n_linkage_runs must be 1 or 2 (currently $(n_linkage_runs))")
     end
-    !isempty(msgs) && utils.earlyexit(msgs)
+    !isempty(msgs) && earlyexit(msgs)
+end
+
+function get_delimiter(filename::String)
+    ext = lowercase(splitext(filename)[2])
+    ext = occursin(".", ext) ? replace(ext, "." => "") : "csv"
+    ext == "tsv" ? '\t' : ','
 end
 
 "Returns: Set(values...) where values are in column colname of the table located at fullpath."
@@ -228,6 +236,17 @@ function construct_recordid(row, pk_colnames::Vector{Symbol}, pk_values::Vector{
     end
     hash(pk_values)
 end
+
+function earlyexit(msgs::Vector{String})
+    isempty(msgs) && return
+    for msg in msgs
+        @error msg
+    end
+    @warn "Exiting early."
+    exit(1)
+end
+
+earlyexit(msg::String) = earlyexit([msg])
 
 ################################################################################
 # Write result to disk

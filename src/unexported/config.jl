@@ -1,7 +1,6 @@
 module config
 
-export TableConfig, ApproxMatch, LinkageCriteria, LinkageConfig,  # Types
-       spine_construction_config, writeconfig                     # Functions
+export ApproxMatch, LinkageCriteria, LinkageConfig
 
 using Dates
 using Schemata
@@ -116,16 +115,15 @@ end
 function LinkageConfig(configfile::String)
     !isfile(configfile) && error("The config file $(configfile) does not exist.")
     d = YAML.load_file(configfile)
-    LinkageConfig(d, "linkage")
+    LinkageConfig(d)
 end
 
-function LinkageConfig(d::Dict, purpose::String)
-    (purpose != "linkage") && (purpose != "spineconstruction") && error("Config purpose is not recognised. Must be either linkage or spineconstruction.")
+function LinkageConfig(d::Dict)
     projectname = d["projectname"]
     dttm        = "$(round(now(), Second(1)))"
     dttm        = replace(dttm, "-" => ".")
     dttm        = replace(dttm, ":" => ".")
-    outdir      = joinpath(d["output_directory"], "$(purpose)-$(projectname)-$(dttm)")
+    outdir      = joinpath(d["output_directory"], "linkage-$(projectname)-$(dttm)")
     spinedata   = d["spine"]["datafile"] == "" ? nothing : d["spine"]["datafile"]
     spine       = TableConfig(spinedata, d["spine"]["schemafile"])
     append_to_spine = d["append_to_spine"]
@@ -145,58 +143,6 @@ function LinkageConfig(d::Dict, purpose::String)
         push!(criteria[tablename2idx[tablename]], LinkageCriteria(criterionid, x))
     end
     LinkageConfig(projectname, outdir, spine, append_to_spine, tables, criteria)
-end
-
-"""
-Returns: A LinkageConfig with additional constraints necessary for the construction of a spine.
-
-Specifically, since spine construction involves linking a table to itself, it requires:
-1. Exactly 1 data table.
-2. The data table's data file must be the same as the spine's data file.
-3. The dta table's schema file must be the same as the spine's schema file.
-
-This function performs these checks, and if they all pass a LinkageConfig is returned.
-"""
-function spine_construction_config(configfile::String)
-    !isfile(configfile) && error("The config file $(configfile) does not exist.")
-    d = YAML.load_file(configfile)
-    length(d["tables"]) != 1 && error("Config for spine construction requires the specification of exactly 1 data table.")
-    data_config = first(d["tables"])[2]  # first(d::Dict) = k=>v. tablename => Dict("datafile" => filename, "schemafile" => filename)
-    d["spine"]["datafile"]   != data_config["datafile"]   && error("Config for spine construction requires the data table's data file to be the same as the spine's data file.")
-    d["spine"]["schemafile"] != data_config["schemafile"] && error("Config for spine construction requires the data table's schema file to be the same as the spine's schema file.")
-    LinkageConfig(d, "spineconstruction")
-end
-
-function writeconfig(outfile::String, cfg::LinkageConfig)
-    d = Dict{String, Any}()
-    d["projectname"] = Symbol(cfg.projectname)
-    d["output_directory"] = Symbol(cfg.output_directory)
-    d["spine"]    = Dict("datafile" => Symbol(cfg.spine.datafile), "schemafile" => Symbol(cfg.spine.schemafile))
-    d["tables"]   = Dict(tablename => dictify(tableconfig) for (tablename, tableconfig) in cfg.tables)
-    d["criteria"] = dictify(cfg.criteria)
-    YAML.write_file(outfile, d)
-end
-
-dictify(tableconfig::TableConfig) = Dict("datafile" => Symbol(tableconfig.datafile), "schemafile" => Symbol(tableconfig.schemafile))
-
-function dictify(v::Vector{Vector{LinkageCriteria}})
-    d = Dict{Int, Dict{String, Any}}()  # lc.id => dictified(lc)
-    for v2 in v
-        for lc in v2
-            d[lc.id] = dictify(lc)
-        end
-    end
-    ids = sort!(collect(keys(d)))
-    [d[id] for id in ids]
-end
-
-function dictify(criteria::LinkageCriteria)
-    d = Dict{String, Any}()
-    d["tablename"]   = Symbol(criteria.tablename)
-    d["exactmatch"]  = criteria.exactmatch  # Dict{Symbol, Symbol}
-    isempty(criteria.approxmatch) && return d
-    d["approxmatch"] = [Dict(fieldname => getfield(obj, fieldname) for fieldname in fieldnames(typeof(obj))) for obj in criteria.approxmatch]
-    d
 end
 
 end

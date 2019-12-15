@@ -1,6 +1,6 @@
 module TableIndexes
 
-export TableIndex, get_rowindices, unsafe_get_rowindices
+export TableIndex
 
 using Tables
 
@@ -44,16 +44,5 @@ function update!(index, k, i)
         push!(index[k], i)
     end
 end
-
-"Returns: Vector of row indices for which table[result, colnames] == k"
-function get_rowindices(tableindex, colnames, k)
-    if colnames == tableindex.colnames && haskey(tableindex.index, k)
-        tableindex.index[k]
-    end
-    nothing
-end
-
-"As per get_rowidindices, but ASSUMES k corresponds to tableindex.colnames"
-unsafe_get_rowindices(tableindex, k) = haskey(tableindex.index, k) ? tableindex.index[k] : nothing
 
 end
