@@ -23,9 +23,9 @@ version = "0.5.18"
 
 [[CategoricalArrays]]
 deps = ["Compat", "DataAPI", "Future", "JSON", "Missings", "Printf", "Reexport", "Unicode"]
-git-tree-sha1 = "4d85a015093760ff23b20f3e25fa195b4cb76794"
+git-tree-sha1 = "9c3fd1ebb503d271943c4ea94332d55ea900c9cb"
 uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.7.3"
+version = "0.7.4"
 
 [[Codecs]]
 deps = ["Test"]
@@ -209,8 +209,8 @@ version = "0.2.0"
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
 [[Schemata]]
-deps = ["CSV", "CategoricalArrays", "DataFrames", "Dates", "Logging", "Parsers", "Tables", "YAML"]
-path = "/projects/jock/repos/Schemata.jl/"
+deps = ["CSV", "CategoricalArrays", "DataFrames", "Dates", "Parsers", "Tables", "YAML"]
+git-tree-sha1 = "bccf71560e0b89c982016e1877b985b1cf95f3d9"
 uuid = "b4d66a32-c6c0-5461-b6fa-34bb9cecaf85"
 version = "2.0.5"
 

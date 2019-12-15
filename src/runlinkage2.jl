@@ -64,7 +64,7 @@ function run_linkage(configfile::String)
         link_table_to_spine!(spine, spine_primarykey, cfg.append_to_spine, table_infile, table_outfile, tableschema, tablecriteria)
     end
 
-    @info "$(now()) Writing spine to the output directory"
+    @info "$(now()) Writing spine to the output directory ($(size(spine, 1)) rows)"
     spine_outfile = joinpath(cfg.output_directory, "output", "spine.tsv")
     CSV.write(spine_outfile, spine; delim='\t')
 
@@ -85,12 +85,13 @@ end
 "Modified: spine"
 function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}, append_to_spine::Bool,
                               table_infile::String, table_outfile::String, tableschema::TableSchema, tablecriteria::Vector{LinkageCriteria})
-    data      = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
-    i_data    = 0
-    ndata     = 0
-    nlinks    = 0
-    tablename = tableschema.name
-    spinecols = Set(names(spine))
+    data       = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
+    i_data     = 0
+    ndata      = 0
+    nlinks     = 0
+    tablename  = tableschema.name
+    spinecols  = Set(names(spine))
+    n_criteria = length(tablecriteria)
     data_primarykey  = tableschema.primarykey
     criteriaid2index = utils.construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
     criteriaid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
@@ -104,16 +105,18 @@ function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}
         end
 
         # Link the row to the spine using the first LinkageCriteria that are satisfied (if any)
-        nlinks = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
+        # n_hasmissing = Number of criteria for which row has missing data
+        # If n_hasmissing == n_criteria then the row cannot be appended to the spine because no criteria can be satisfied
+        nlinks, n_hasmissing = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
 
         # If row is unlinked, append it to the spine, update the TableIndexes and link
-        if append_to_spine && ismissing(data[i_data, :spineID])
+        if append_to_spine && n_hasmissing < n_criteria && ismissing(data[i_data, :spineID])
             append_row_to_spine!(spine, spine_primarykey, row, spinecols)  # Create a new spine record
             for linkagecriteria in tablecriteria
                 tableindex = criteriaid2index[linkagecriteria.id]
                 utils.update!(tableindex, spine, size(spine, 1))  # Update the tableindex
             end
-            nlinks = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
+            nlinks, n_hasmissing = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
         end
 
         # If data is full, write to disk
@@ -139,12 +142,16 @@ Link the row to the spine using the first LinkageCriteria that are satisfied (if
 """
 function link_row_to_spine!(data, i_data::Int, row, spine, tablecriteria::Vector{LinkageCriteria},
                             criteriaid2index, criteriaid2key, nlinks::Int, spinecols::Set{Symbol})
+    n_hasmissing = 0  # Number of criteria for which row has missing data
     for linkagecriteria in tablecriteria
         # Identify the spine records that match the row on linkagecriteria.exactmatch
         criteriaid = linkagecriteria.id
         tableindex = criteriaid2index[criteriaid]
         hasmissing = utils.constructkey!(criteriaid2key[criteriaid], row, tableindex.colnames)
-        hasmissing && continue  # datarow[tableindex.colnames] includes a missing value
+        if hasmissing
+            n_hasmissing += 1
+            continue  # datarow[tableindex.colnames] includes a missing value
+        end
         k = Tuple(criteriaid2key[criteriaid])
         !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on linkagecriteria.exactmatch
         candidate_indices = tableindex.index[k]
@@ -162,7 +169,7 @@ function link_row_to_spine!(data, i_data::Int, row, spine, tablecriteria::Vector
         data[i_data, :criteriaID] = criteriaid
         break  # Row has been linked, no need to link on other criteria
     end
-    nlinks
+    nlinks, n_hasmissing
 end
 
 function select_best_candidate(spine, candidate_indices::Vector{Int}, row, approxmatches::Vector{ApproxMatch})
