@@ -209,7 +209,7 @@ end
 function construct_recordid2criteriaid(fullpath::String)
     result = Dict{UInt, String}()
     pk_colnames = construct_primarykey_colnames(fullpath)
-    pk_values   = fill("", length(pk_colnames))
+    pk_values   = Union{String, Missing}[missing for i = 1:length(pk_colnames)]
     for row in CSV.Rows(fullpath; reusebuffer=true)
         recordid = construct_recordid(row, pk_colnames, pk_values)
         haskey(result, recordid) && continue
@@ -228,7 +228,7 @@ function construct_primarykey_colnames(fullpath::String)
     result
 end
 
-function construct_recordid(row, pk_colnames::Vector{Symbol}, pk_values::Vector{String})
+function construct_recordid(row, pk_colnames::Vector{Symbol}, pk_values::Vector{Union{String, Missing}})
     j = 0
     for colname in pk_colnames
         j += 1

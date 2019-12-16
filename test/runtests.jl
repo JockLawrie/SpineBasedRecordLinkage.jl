@@ -13,7 +13,7 @@ if !isdir(outdir)
 end
 
 # Support functions
-"Returns: A set of NamedTuples, with each element being a row of the table in the supplied datafile."
+"Returns: A set of Dict{Symbol, Any}, with each element being a row of the table in the supplied datafile."
 function table_to_set_of_dicts(datafile::String)
     result   = Set{Dict{Symbol, Any}}()
     data     = DataFrame(CSV.File(datafile))
