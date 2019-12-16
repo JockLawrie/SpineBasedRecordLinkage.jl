@@ -2,6 +2,8 @@
   Test set 1: Construct a spine from 1 table and link where possible.
 =#
 
+println("\nTEST SET 1")
+
 # Construct spine
 outdir1a = run_linkage(joinpath("config", "constructspine_emergencies.yml"))
 spine    = DataFrame(CSV.File(joinpath(outdir1a, "output", "spine.tsv"); delim='\t'))
