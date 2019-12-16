@@ -160,7 +160,7 @@ function link_row_to_spine!(data, i_data::Int, row, spine, tablecriteria::Vector
         spineid == 0 && continue  # None of the candidates satisfy the approxmatch criteria
 
         # Merge data from row into spine[i_spine, :]
-        mergerow!(row, spine, i_spine, spinecols)
+        #mergerow!(row, spine, i_spine, spinecols)
 
         # Create a link between the spine and the data
         nlinks += 1
@@ -219,6 +219,7 @@ function append_row_to_spine!(spine, spine_primarykey, row, spinecols::Set{Symbo
     spine[i, :spineID] = hash(spine[i, spine_primarykey])
 end
 
+#=
 """
 Merge data from row into spine[i, :].
 
@@ -234,6 +235,7 @@ function mergerow!(row, spine, i, spinecols::Set{Symbol})
         end
     end
 end
+=#
 
 ################################################################################
 # Utils
