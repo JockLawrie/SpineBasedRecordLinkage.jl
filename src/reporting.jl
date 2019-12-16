@@ -210,7 +210,7 @@ function construct_recordid2criteriaid(fullpath::String)
     result = Dict{UInt, String}()
     pk_colnames = construct_primarykey_colnames(fullpath)
     pk_values   = Union{String, Missing}[missing for i = 1:length(pk_colnames)]
-    for row in CSV.Rows(fullpath; reusebuffer=true)
+    for row in CSV.Rows(fullpath; reusebuffer=true, use_mmap=true)
         recordid = construct_recordid(row, pk_colnames, pk_values)
         haskey(result, recordid) && continue
         criteriaID = getproperty(row, :criteriaID)
