@@ -96,7 +96,9 @@ end
 ################################################################################
 
 """
-output_directory: A directory created specifically for the linkage run. It contains all output.
+projectname:      Project name.
+description:      A description of the linkage run.
+output_directory: A directory created specifically for the linkage run, identifiable by the project name and timestamp of the run. It contains all output.
 spine:            TableConfig for the spine.
 append_to_spine:  If true then unlinked rows are appended to the spine and linked.
                   If false then unlinked rows are left unlinked.
@@ -105,6 +107,7 @@ criteria:         Vector{Vector{LinkageCriteria}}, where criteria[i] = [criteria
 """
 struct LinkageConfig
     projectname::String
+    description::String
     output_directory::String
     spine::TableConfig
     append_to_spine::Bool
@@ -120,6 +123,7 @@ end
 
 function LinkageConfig(d::Dict)
     projectname = d["projectname"]
+    description = d["description"]
     dttm        = "$(round(now(), Second(1)))"
     dttm        = replace(dttm, "-" => ".")
     dttm        = replace(dttm, ":" => ".")
@@ -142,7 +146,7 @@ function LinkageConfig(d::Dict)
         criterionid += 1
         push!(criteria[tablename2idx[tablename]], LinkageCriteria(criterionid, x))
     end
-    LinkageConfig(projectname, outdir, spine, append_to_spine, tables, criteria)
+    LinkageConfig(projectname, description, outdir, spine, append_to_spine, tables, criteria)
 end
 
 end

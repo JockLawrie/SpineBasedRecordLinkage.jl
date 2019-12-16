@@ -1,4 +1,5 @@
 projectname: emergencies-link
+description: Link the emergencies, admission and notifications tables to the spine that was constructed from the emergencies table.
 output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "output/spine.tsv", schemafile: "schema/emergency_presentations.yml"}
 append_to_spine: false

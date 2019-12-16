@@ -1,4 +1,5 @@
 projectname: emergencies-spine
+description: The goal here is to construct a spine from the emergencies table.
 output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "", schemafile: "schema/emergency_presentations.yml"}
 append_to_spine: true

@@ -1,4 +1,5 @@
-projectname: alltables      # Construct a spine from all tables and link
+projectname: alltables
+description: Construct a spine from all 3 tables and link the tables to the spine.
 output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "", schemafile: "schema/spine.yml"}
 append_to_spine: true
