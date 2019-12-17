@@ -1,0 +1,14 @@
+projectname: influenza-cases-spine
+description: Construct a spine containing only people who have had influenza
+output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
+spine: {datafile: "", schemafile: "schema/influenza_cases.yml"}
+append_to_spine: true
+tables:
+    influenza_cases: {datafile: "data/influenza_cases.csv", schemafile: "schema/influenza_cases.yml"}
+criteria:
+    - {tablename: influenza_cases, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
+    - {tablename: influenza_cases, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: influenza_cases, exactmatch: {firstname: firstname, birthdate: birthdate},
+                                   approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
+    - {tablename: influenza_cases, exactmatch: {lastname: lastname, birthdate: birthdate},
+                                   approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}

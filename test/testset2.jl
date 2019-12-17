@@ -4,7 +4,7 @@
 
 println("\nTEST SET 2")
 
-# Linkage
+println("Link all health service events")
 outdir2 = run_linkage(joinpath("config", "link_all_health_service_events.yml"))
 
 spine = DataFrame(CSV.File(joinpath(outdir2, "output", "spine.tsv"); delim='\t'))
@@ -31,8 +31,7 @@ ic_linked = view(ic, .!ismissing.(ic[!, :spineID]), :)
 @test size(view(ic_linked, ic_linked[!, :criteriaID] .== 6, :), 1) == 1  # 1 of 8 links made with criteria 6
 @test size(view(ic_linked, ic_linked[!, :criteriaID] .== 7, :), 1) == 2  # 2 of 8 links made with criteria 7
 
-
-# Reporting
+println("Reporting")
 outfile = joinpath(outdir, "linkage_report.csv")
 summarise_linkage_run(outdir2, outfile)
 result  = table_to_set_of_dicts(outfile)

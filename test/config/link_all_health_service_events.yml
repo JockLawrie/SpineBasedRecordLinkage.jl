@@ -16,6 +16,6 @@ criteria:
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, birthdate: birthdate},
-                                                approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
+                                   approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
     - {tablename: influenza_cases, exactmatch: {lastname: lastname, birthdate: birthdate},
-                                                approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}
+                                   approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}

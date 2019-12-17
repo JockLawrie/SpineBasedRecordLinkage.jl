@@ -1,7 +1,7 @@
-projectname: emergencies-link
-description: Link the emergencies, admission and notifications tables to the spine that was constructed from the emergencies table.
-output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
-spine: {datafile: "output/spine.tsv", schemafile: "schema/emergency_presentations.yml"}
+projectname: influenza-cases-link
+description: Link the emergencies, admissions and influenza tables to the spine that was constructed from the influenza cases table.
+output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
+spine: {datafile: "output/spine.tsv", schemafile: "schema/influenza_cases.yml"}
 append_to_spine: false
 tables:
     emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
@@ -16,6 +16,6 @@ criteria:
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, birthdate: birthdate},
-                                                approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
+                                   approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
     - {tablename: influenza_cases, exactmatch: {lastname: lastname, birthdate: birthdate},
-                                                approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}
+                                   approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}

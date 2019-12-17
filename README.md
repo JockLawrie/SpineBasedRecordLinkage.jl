@@ -25,16 +25,16 @@ Spine-based record linkage in Julia.
 This package provides 3 functions:
 
 1. `run_linkage` is used to construct a spine from one or more tables and link the tables to the spine.
-   Alternatively, a prepared spine can be passed and `run_linkage` will only perform the linkage step.
+   Alternatively, an existing spine can be passed and `run_linkage` will only perform the linkage step.
    __A linkage is configured in a YAML file and can run as a script, so that users needn't write any Julia code.__
 
 2. `summarise_linkage_run` provides a summary report of the results of a linkage run as a CSV file.
 
 3. `compare_linkage_runs` provides a summary comparison of 2 linkage runs as a CSV file.
 
-## Linkage
+## Example
 
-We describe linkage configuration and execution using an example from the test suite.
+We demonstrate linkage configuration and execution using an example from the test suite.
 
 In the example we have a population of people (entities) using various health services (each usage is an event).
 
@@ -45,7 +45,7 @@ Note that we do not have a linkage spine.
 The 3 tables are:
 
 - `hospital_admissions` describes admissions to various hospitals.
-- `emergency_presentations` describes presentations to the emergency departments of several hospitals.
+- `emergency_presentations` describes presentations to the emergency departments of various hospitals.
 - `influenza_cases` contains reports cases of influenza that are required to be notified to the central health department.
 
 The schema for each of these tables can be found in the `test/schema` directory.
@@ -55,7 +55,7 @@ so that the person (entity) that the event refers to can be identified.
 Each row also contains enough information to uniquely identify the event, such as a hospital ID and presentation time stamp,
 but doesn't contain all of the event's data, such as the reason for the emergency.
 This is common practice in data linkage, whereby the information required for linkage and that required for analysis are separated and handled
-by different people/teams.
+by different people in order to preserve anonymity.
 
 Our goal is to link these tables so that we can ask question such as:
 
@@ -199,6 +199,7 @@ The results of `run_linkage` are structured as follows:
 ### Summarise the results
 
 We often want to answer questions like:
+
 - How many links are there?
 - What links have remained unchanged since the last run?
 - What links are new? Broken? Intact but now satisfying different criteria?
