@@ -1,18 +1,18 @@
-projectname: emergencies-link
-description: Link the emergencies, admission and notifications tables to the spine that was constructed from the emergencies table.
+projectname: alltables
+description: Construct a spine from all 3 tables and link the tables to the spine.
 output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
-spine: {datafile: "output/spine.tsv", schemafile: "schema/emergency_presentations.yml"}
-append_to_spine: false
+spine: {datafile: "", schemafile: "schema/spine.yml"}
+append_to_spine: true
 tables:
-    emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
     hospital_admissions:     {datafile: "data/hospital_admissions.csv",     schemafile: "schema/hospital_admissions.yml"}
+    emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
     influenza_cases:         {datafile: "data/influenza_cases.csv",         schemafile: "schema/influenza_cases.yml"}
 criteria:
+    - {tablename: hospital_admissions,     exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: emergency_presentations, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: emergency_presentations, exactmatch: {birthdate: birthdate},
                                            approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3},
                                                          {datacolumn: lastname,  spinecolumn: lastname,  distancemetric: levenshtein, threshold: 0.3}]}
-    - {tablename: hospital_admissions, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: influenza_cases, exactmatch: {firstname: firstname, birthdate: birthdate},

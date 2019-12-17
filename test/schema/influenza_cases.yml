@@ -1,5 +1,5 @@
-name: notifiable_disease_reports
-description: "Each row specifies report of a case of a notifiable disease"
+name: influenza_cases
+description: "Each row specifies report of a case of influenza"
 primarykey: reportid
 columns:
   - reportid:   {description: Report ID, datatype: Int, iscategorical: false, isrequired: true, isunique: true, validvalues: Int}

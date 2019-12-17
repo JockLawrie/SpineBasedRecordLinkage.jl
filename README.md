@@ -22,48 +22,91 @@ Spine-based record linkage in Julia.
 
 ## Usage
 
-This package provides 2 functions:
+This package provides 3 functions:
 
-1. `construct_spine` is used to construct a spine from a given table.
+1. `run_linkage` is used to construct a spine from one or more tables and link the tables to the spine.
+   Alternatively, a prepared spine can be passed and `run_linkage` will only perform the linkage step.
+   __A linkage is configured in a YAML file and can run as a script, so that users needn't write any Julia code.__
 
-2. `run_linkage` is used to link one or more tables to the spine.
+2. `summarise_linkage_run` provides a summary report of the results of a linkage run as a CSV file.
 
-Both operations are configured in YAML files and run as scripts, so that users needn't write any Julia code.
+3. `compare_linkage_runs` provides a summary comparison of 2 linkage runs as a CSV file.
 
 ## Linkage
 
-We describe the `run_linkage` function first because, while some of the underlying concepts used are also used in spine construction, they are more naturally introduced in the context of linkage.
+We describe linkage configuration and execution using an example from the test suite.
+
+In the example we have a population of people (entities) using various health services (each usage is an event).
+
+We have 3 tables in which each row describes a usage of a health service.
+That is, we have 3 event-based tables in which each row specifies an event that refers to an entity.
+Note that we do not have a linkage spine.
+
+The 3 tables are:
+
+- `hospital_admissions` describes admissions to various hospitals.
+- `emergency_presentations` describes presentations to the emergency departments of several hospitals.
+- `notifiable_disease_reports` contains reports of disease cases that are required to be notified to the central health department.
+   These are known as notifiable diseases.
+
+The schema for each of these tables can be found in the `test/schema` directory.
+
+Each row of each of these tables contains personally identifiable information, such as names and birth dates,
+so that the person (entity) that the event refers to can be identified.
+Each row also contains enough information to uniquely identify the event, such as a hospital ID and presentation time stamp,
+but doesn't contain all of the event's data, such as the reason for the emergency.
+This is common practice in data linkage, whereby the information required for linkage and that required for analysis are separated and handled
+by different people/teams.
+
+Our goal is to link these tables so that we can ask question such as:
+
+- How many influenza cases presented to an emergency department last year?
+- How many of these were hospitalised?
+- What were the most common reasons for repeated emergency presentations?
+- How often do people utilise multiple hospitals for the same underlying problem?
 
 ### Configuration
 
-Suppose you have a file called `linkage_config.yaml` which contains the following:
+Consider the following linkage configuration file, `link_all_health_service_events.yml`, which is in the `test/config` directory.
 
 ```yaml
-projectname: myproject
-output_directory:  "/path/to/linkage/output"
-spine: {datafile: "/path/to/spine.tsv", schemafile: "/path/to/spine_schema.yaml"}
+projectname: health-service-usage
+description: Construct a spine from 3 health service usage tables and link the tables to the spine.
+output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
+spine: {datafile: "", schemafile: "schema/spine.yml"}
+append_to_spine: true
 tables:
-    table1: {datafile: "/path/to/table1.tsv", schemafile: "/path/to/table1_schema.yaml"}
-    table2: {datafile: "/path/to/table2.tsv", schemafile: "/path/to/table2_schema.yaml"}
+    hospital_admissions:        {datafile: "data/hospital_admissions.csv",        schemafile: "schema/hospital_admissions.yml"}
+    emergency_presentations:    {datafile: "data/emergency_presentations.csv",    schemafile: "schema/emergency_presentations.yml"}
+    notifiable_disease_reports: {datafile: "data/notifiable_disease_reports.csv", schemafile: "schema/notifiable_disease_reports.yml"}
 criteria:
-    - {tablename: table1, exactmatch:  {firstname: First_Name, lastname: Last_Name, birthdate: DOB}}
-    - {tablename: table1, exactmatch:  {birthdate: DOB},
-                          approxmatch: [{datacolumn: firstname, spinecolumn: First_Name, distancemetric: levenshtein, threshold: 0.2},
-                                        {datacolumn: lastname,  spinecolumn: Last_Name,  distancemetric: levenshtein, threshold: 0.2}]}
-    - {tablename: table2, exactmatch:  {firstname: First_Name, middlename: Middle_Name, surname: Last_Name, birthdate: DOB}}
+    - {tablename: hospital_admissions,     exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: emergency_presentations, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: emergency_presentations, exactmatch: {birthdate: birthdate},
+                                           approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3},
+                                                         {datacolumn: lastname,  spinecolumn: lastname,  distancemetric: levenshtein, threshold: 0.3}]}
+    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
+    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, birthdate: birthdate},
+                                              approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
+    - {tablename: notifiable_disease_reports, exactmatch: {lastname: lastname, birthdate: birthdate},
+                                              approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}
 ```
 
-In this example configuration we have:
+The configuration contains:
 
-- A project name and a directory that will contain the output. See the __Run linkage__ section below for details on how these 2 fields are utilised.
-- A pre-existing spine located at `/path/to/spine.tsv`.
-  - See below for how to construct a spine if you don't already have one.
-  - The spine is a _tab-separated values_ file, which indicated by the `tsv` extension.
-  - A comma-separated values (`csv`) file would be fine too, provided that commas don't appear as values in any of the columns.
-    Since commas are generally more common in data than tabs, a `tsv` is usually safer than a `csv`, though not foolproof.
+- A `projectname`, which enables linkage output to be easily identified.
+- A linkage `description`, which should describe the purpose of the linkage.
+- The output of a linkage run will be contained in a directory with the form `{output_directory}/linkage-{projectname}-{timestamp}`
 - A schema of the spine specified in `/path/to/spine_schema.yaml`.
   This file specifies the columns, data types etc of the spine.
-  See [Schemata.jl](https://github.com/JockLawrie/Schemata.jl) for examples of how to write a schema.
+  See this package's test schemata as well as [Schemata.jl](https://github.com/JockLawrie/Schemata.jl) for examples of how to write a schema.
+- A file path that contains the spine's pre-existing data. If the spine does not already exist, set the spine's `datafile` value to `""`.
+- If constructing a spine from scratch, or appending rows to an existing spine (for example with updated data), set `append_to_spine` to true.
+  If `append_to_spine` is true then records in the input tables that cannot link to an existing row in the spine are appended to the spine and linked.
+  Otherwise these records are left unlinked.
+
+
 - Two tables, named `table1` and `table2`, to be linked to the spine.
   - The names are arbitrary.
   - The locations of each table's data file and schema file are specified in the same way as those of the spine. 
@@ -196,6 +239,8 @@ To evaluate the results:
 
 ## Tips for users
 
+- When using a pre-existing spine, either comma-separated values (csv) or tab-separated values (tsv) are fine.
+  Since commas are generally more common in data than tabs, a `tsv` is usually safer than a `csv`, though not foolproof.
 - The spine is currently required to fit into memory, though the tables to be linked to the spine can be arbitrarily large.
   For example, the package has been tested with files up to 60 million records.
 - For performance this package only compares string values.
