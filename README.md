@@ -46,8 +46,7 @@ The 3 tables are:
 
 - `hospital_admissions` describes admissions to various hospitals.
 - `emergency_presentations` describes presentations to the emergency departments of several hospitals.
-- `notifiable_disease_reports` contains reports of disease cases that are required to be notified to the central health department.
-   These are known as notifiable diseases.
+- `influenza_cases` contains reports cases of influenza that are required to be notified to the central health department.
 
 The schema for each of these tables can be found in the `test/schema` directory.
 
@@ -76,21 +75,21 @@ output_directory: "output"  # During testing this expands to: /path/to/SpineBase
 spine: {datafile: "", schemafile: "schema/spine.yml"}
 append_to_spine: true
 tables:
-    hospital_admissions:        {datafile: "data/hospital_admissions.csv",        schemafile: "schema/hospital_admissions.yml"}
-    emergency_presentations:    {datafile: "data/emergency_presentations.csv",    schemafile: "schema/emergency_presentations.yml"}
-    notifiable_disease_reports: {datafile: "data/notifiable_disease_reports.csv", schemafile: "schema/notifiable_disease_reports.yml"}
+    hospital_admissions:     {datafile: "data/hospital_admissions.csv",     schemafile: "schema/hospital_admissions.yml"}
+    emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
+    influenza_cases:         {datafile: "data/influenza_cases.csv",         schemafile: "schema/influenza_cases.yml"}
 criteria:
     - {tablename: hospital_admissions,     exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: emergency_presentations, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
     - {tablename: emergency_presentations, exactmatch: {birthdate: birthdate},
                                            approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3},
                                                          {datacolumn: lastname,  spinecolumn: lastname,  distancemetric: levenshtein, threshold: 0.3}]}
-    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
-    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
-    - {tablename: notifiable_disease_reports, exactmatch: {firstname: firstname, birthdate: birthdate},
-                                              approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
-    - {tablename: notifiable_disease_reports, exactmatch: {lastname: lastname, birthdate: birthdate},
-                                              approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}
+    - {tablename: influenza_cases, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
+    - {tablename: influenza_cases, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
+    - {tablename: influenza_cases, exactmatch: {firstname: firstname, birthdate: birthdate},
+                                                approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
+    - {tablename: influenza_cases, exactmatch: {lastname: lastname, birthdate: birthdate},
+                                                approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}
 ```
 
 The configuration contains:
@@ -100,34 +99,34 @@ The configuration contains:
 - The output of a linkage run will be contained in a directory with the form `{output_directory}/linkage-{projectname}-{timestamp}`
 - A schema of the spine specified in `/path/to/spine_schema.yaml`.
   This file specifies the columns, data types etc of the spine.
-  See this package's test schemata as well as [Schemata.jl](https://github.com/JockLawrie/Schemata.jl) for examples of how to write a schema.
+  See the `test/schema` directory as well as [Schemata.jl](https://github.com/JockLawrie/Schemata.jl) for examples of how to write a schema.
 - A file path that contains the spine's pre-existing data. If the spine does not already exist, set the spine's `datafile` value to `""`.
 - If constructing a spine from scratch, or appending rows to an existing spine (for example with updated data), set `append_to_spine` to true.
   If `append_to_spine` is true then records in the input tables that cannot link to an existing row in the spine are appended to the spine and linked.
   Otherwise these records are left unlinked.
-
-
-- Two tables, named `table1` and `table2`, to be linked to the spine.
-  - The names are arbitrary.
+- Specifications of the 3 tables:
+  - The table names are arbitrary.
   - The locations of each table's data file and schema file are specified in the same way as those of the spine. 
 - A list of linkage criteria.
   - The list is processed in sequence, so that multiple sets of criteria can be compared to the same table in a specified order.
-    For example, you can match on name and birth date, then on name and address.
+    For example, you can match on name and birth date, and if that fails then try matching on name and address.
   - Each element of the list is a set of criteria.
   - For each set of criteria:
     - The rows of the specified table are iterated over and the criteria are checked.
     - For a given row, if the criteria are satisifed then it is linked to a row of the spine.
   - In our example:
-    - The 1st iteration will loop through the rows of `table1`.
-      - A row is linked to a row in the spine if the values of `firstname`, `lastname` and `birthdate` in the row __exactly__ match the values of `First_Name`, `Last_Name` and `DOB` respectively in the spine row.
-      - This scenario is equvialent to a SQL join, but does not require `table1` to fit into memory.
-      - If the rows of `table1` specify events (instead of entities - see above), several rows in `table1` may link to a given spine row,
-        though any given row can only link to 1 row in the spine.
-    - The 2nd iteration requires an exact match for `birthdate` and approximate matches for `firstname` and `lastname`.
-      Specifically, this iteration will match a row from `table1` to a row in the spine if:
+    - The 1st iteration will loop through the rows of the hospital admissions table.
+      - A row is linked to a row in the spine if the values of `firstname`, `lastname` and `birthdate` in the row __exactly__ match the values of `firstname`, `lastname` and `birthdate` respectively in the spine row.
+      - If no such spine row exists, the row is appended to the spine and linked because `append_to_spine` is set to `true`.
+      - This scenario is equvialent to a SQL join, and does not require the hospital admissions table to fit into memory.
+      - Several rows in the hospital admissions table may link to a given spine row, because a person may be admitted many times.
+        But any given row can only link to 1 row in the spine.
+        That is, a hospital admission refers to exactly 1 person.
+    - The 2nd iteration is similar but links the emergency presentations table instead.
+    - The 3rd iteration requires birth date to match exactly, but allows some imprecision on first name and last name.
+      Specifically, this iteration will match a row from the emergency presentations to a row in the spine if:
       - The 2 rows match exactly on birth date.
-      - The Levenshtein distance (see the notes below) between the first names in the 2 rows is no more than 0.2, and ditto for the last names.
-    - The 3rd iteration iterates through the rows of `table2` and requires exact matches on first name, middle name, last name and birth date.
+      - The Levenshtein distance (see the notes below) between the first names in the 2 rows is no more than 0.3, _and_ ditto for the last names.
 
 __Notes on approximate matches__
 
@@ -155,24 +154,24 @@ __Notes on exact matches__
 
 ### Run linkage
 
-Once you have a spine and your config is set up, you can run the following script from the command line on Linux or Mac:
+Once your schemata and linkage configuration are set up, you can run the following script from the command line on Linux or Mac:
 
 ```bash
-$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/linkage_config.yaml
+$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/link_all_health_service_events.yml
 ```
 
 If you're on Windows you can run this from PowerShell:
 
 ```bash
-PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\linkage_config.yaml
+PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\link_all_health_service_events.yml
 ```
 
-Alternatively you can run the following code:
+Alternatively you can run the following code from the Julia REPL:
 
 ```julia
 using SpineBasedRecordLinkage
 
-run_linkage("/path/to/linkage_config.yaml")
+run_linkage("/path/to/link_all_health_service_events.yml")
 ```
 
 ### Inspect the results
@@ -184,65 +183,84 @@ The results of `run_linkage` are structured as follows:
    `{output_directory}/linkage-{projectname}-{timestamp}`
 2. The directory contains `input` and `output` directories.
 3. The `input` directory contains a copy of the config file and a file containing the versions of Julia and this package.
-   The spine and data tables are not copied to the `input` directory because they may be very large and take a long time.
+   The data tables are not copied to the `input` directory because they may be very large and take a long time.
+   Ditto for the spine if it exists prior to the linkage run.
 4. The `output` directory contains the information necessary to inspect the linkage results and construct linked content data.
    It contains the following files:
    - A `criteria.tsv` table, in which each row specifies a linkage criterion.
-   - A `spine_linked.tsv` file, containing:
+   - A `spine.tsv` file, containing:
      - A `spineID` column, which is a hash of the spine's primary key that is specified in the schema used in the linkage configuration.
      - The columns of the spine's primary key.
    - Linked data tables. Each linked table contains:
-     - A `spineID` column which links the table to the spine.
      - The table's primary key columns, which enable the construction of linked content data.
+     - A `spineID` column which links the table to the spine.
      - A `criteriaID` column that links to the `criteria.tsv` file, so that we can see, for each link, which linkage criteria were satisfied.
-5. The tables of the `output` directory can be read into a BI reporting tool for easy interrogation and visualisation.
-   We can then easily answer questions like:
-   - How many links are there?
-   - What links have remained unchanged since the last run?
-   - What links are new? Broken? Intact but now satisfying different criteria?
-   - How many records remain unlinked? And which ones are they?
 
-## Constructing a spine
+### Summarise the results
 
-A spine can be constructed using the `construct_spine` function, which links a table to itself then removes duplicate links.
-Therefore a configuration file for spine construction has the same format as a configuration file for linkage,
-with the following constraints:
+We often want to answer questions like:
+- How many links are there?
+- What links have remained unchanged since the last run?
+- What links are new? Broken? Intact but now satisfying different criteria?
+- How many records remain unlinked? And which ones are they?
 
-1. There is only 1 table to be linked to the spine.
-2. The data files for the spine and the table are the same.
-3. The schema files for the spine and the table are the same.
+For a quick summary of a given linkage run, use the `summarise_linkage_run` function which has 2 arguments:
 
-For example, the following configuration file is suitable for spine construction:
+- `directory`: The directory that contains the results of the linkage run, i.e., `{output_directory}/linkage-{projectname}-{timestamp}`
+- `outfile` :  The full path of the (csv or tsv) file that contains the report.
 
-```yaml
-projectname: myproject
-output_directory:  "/path/to/linkage/output"
-spine: {datafile: "/path/to/mytable.tsv", schemafile: "/path/to/mytable_schema.yaml"}
-tables:
-    mytable: {datafile: "/path/to/mytable.tsv", schemafile: "/path/to/mytable_schema.yaml"}
-criteria:
-    - {tablename: mytable, exactmatch:  {firstname: First_Name, lastname: Last_Name, birthdate: DOB}}
-    - {tablename: mytable, exactmatch:  {birthdate: DOB},
-                           approxmatch: [{datacolumn: firstname, spinecolumn: First_Name, distancemetric: levenshtein, threshold: 0.2},
-                                         {datacolumn: lastname,  spinecolumn: Last_Name,  distancemetric: levenshtein, threshold: 0.2}]}
+On Linux/Mac, with the report stored in `linkage_report.tsv`:
+
+```bash
+$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/summarise_linkage_run.jl {output_directory}/linkage-{projectname}-{timestamp} linkage_report.tsv
 ```
 
-To evaluate the results:
+On Windows (from PowerShell):
 
-1. Copy the configuration file that you used for spine construction.
-2. Replace the spine data file with the location of the result of the spine construction process, namely:
+```bash
+PS julia path\to\SpineBasedRecordLinkage.jl\scripts\summarise_linkage_run.jl {output_directory}\linkage-{projectname}-{timestamp} linkage_report.tsv
+```
 
-   `{output_directory}/spineconstruction-{projectname}-{timestamp}/output/spine.tsv`
+From the Julia REPL:
 
-3. Run the linkage script with the modified configuration file.
-4. Inspect the results as described above.
+```julia
+using SpineBasedRecordLinkage
+
+summarise_linkage_run("{output_directory}/linkage-{projectname}-{timestamp}", "linkage_report.tsv")
+```
+
+To compare the results of 2 linkage runs use the `compare_linkage_runs` function which has 3 arguments:
+
+- `directory1`: The directory that contains the results of the first linkage run. Typically this is the earlier run.
+- `directory2`: The directory that contains the results of the second linkage run.
+- `outfile` :  The full path of the (csv or tsv) file that contains the report.
+
+On Linux/Mac, with the report stored in `linkage_comparison.tsv`:
+
+```bash
+$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/summarise_linkage_run.jl directory1 directory2 linkage_comparison.tsv
+```
+
+On Windows (from PowerShell):
+
+```bash
+PS julia path\to\SpineBasedRecordLinkage.jl\scripts\summarise_linkage_run.jl directory1 directory2 linkage_comparison.tsv
+```
+
+From the Julia REPL:
+
+```julia
+using SpineBasedRecordLinkage
+
+summarise_linkage_run(directory1, directory2, "linkage_comparison.tsv")
+```
 
 ## Tips for users
 
 - When using a pre-existing spine, either comma-separated values (csv) or tab-separated values (tsv) are fine.
   Since commas are generally more common in data than tabs, a `tsv` is usually safer than a `csv`, though not foolproof.
 - The spine is currently required to fit into memory, though the tables to be linked to the spine can be arbitrarily large.
-  For example, the package has been tested with files up to 60 million records.
+  For example, the package has been tested with files up to 60 million records on a commodity machine with 8GB of RAM.
 - For performance this package only compares string values.
   Therefore it is important that data be formatted correctly before linkage, and before spine construction if you don't already have a spine.
   For example, dates should have a common format in all tables, invalid values should be removed, etc.

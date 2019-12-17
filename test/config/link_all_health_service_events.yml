@@ -1,6 +1,6 @@
-projectname: alltables
-description: Construct a spine from all 3 tables and link the tables to the spine.
-output_directory: "output"  # /path/to/SpineBasedRecordLinkage.jl/test/output/
+projectname: health-service-usage
+description: Construct a spine from 3 health service usage tables and link the tables to the spine.
+output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "", schemafile: "schema/spine.yml"}
 append_to_spine: true
 tables:
