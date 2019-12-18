@@ -13,6 +13,15 @@ StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
+[compat]
+julia = "1"
+CSV = "0.5.20, 0.6"
+DataFrames = "0.20.0, 0.21"
+Schemata = "2.0.5, 2.1.0"
+StringDistances = "0.5.2, 0.6"
+Tables = "0.2.11, 0.3"
+YAML = "0.3.2, 0.4"
+
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
