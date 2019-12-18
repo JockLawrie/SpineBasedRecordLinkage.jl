@@ -159,9 +159,6 @@ function link_row_to_spine!(data, i_data::Int, row, spine, tablecriteria::Vector
         spineid, i_spine = select_best_candidate(spine, candidate_indices, row, linkagecriteria.approxmatch)
         spineid == 0 && continue  # None of the candidates satisfy the approxmatch criteria
 
-        # Merge data from row into spine[i_spine, :]
-        #mergerow!(row, spine, i_spine, spinecols)
-
         # Create a link between the spine and the data
         nlinks += 1
         data[i_data, :spineID]    = spineid
@@ -218,24 +215,6 @@ function append_row_to_spine!(spine, spine_primarykey, row, spinecols::Set{Symbo
     i = size(spine, 1)
     spine[i, :spineID] = hash(spine[i, spine_primarykey])
 end
-
-#=
-"""
-Merge data from row into spine[i, :].
-
-Currently row[column] is written to spine[i, column] if the latter is missing.
-"""
-function mergerow!(row, spine, i, spinecols::Set{Symbol})
-    for colname in propertynames(row)
-        !in(colname, spinecols) && continue
-        rowval = getproperty(row, colname)
-        ismissing(rowval) && continue
-        if ismissing(spine[i, colname])
-            spine[i, colname] = rowval
-        end
-    end
-end
-=#
 
 ################################################################################
 # Utils
