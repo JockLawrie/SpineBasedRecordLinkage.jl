@@ -4,7 +4,7 @@ export distance
 
 using StringDistances
 
-const metrics = Dict(:hamming => Hamming, :jaro => Jaro, :dameraulevenshtein => DamerauLevenshtein, :levenshtein => Levenshtein, :ratcliffobershelp => RatcliffObershelp)
+const metrics = Dict(:jaro => Jaro, :dameraulevenshtein => DamerauLevenshtein, :levenshtein => Levenshtein, :ratcliffobershelp => RatcliffObershelp)
 
 """
 Returns: Distance between val1 and val2 as measured by the metric.
