@@ -94,7 +94,7 @@ function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}
     data_primarykey  = tableschema.primarykey
     criteriaid2index = construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
     criteriaid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
-    for row in CSV.Rows(table_infile; reusebuffer=true)
+    for row in CSV.Rows(table_infile; reusebuffer=true, use_mmap=true)
         # Store data primary key
         i_data += 1
         data[i_data, :spineID]    = missing
