@@ -16,9 +16,7 @@ Spine-based record linkage in Julia.
 
 - __Record linkage__ is, at its core, the problem of determining whether two records refer to the same entity.
 
-- The 2 basic approaches to record linkage are:
-  - __Cluster-based linkage__: Records from the various data sets are clustered according to their content.
-  - __Spine-based linkage__:   Records are linked one at a time to a __spine__ - a table in which each record specifies an entity.
+- Spine-based record linkage links records one at a time to a __spine__ - a table in which each record specifies an entity.
 
 ## Usage
 
@@ -189,12 +187,13 @@ The results of `run_linkage` are structured as follows:
    It contains the following files:
    - A `criteria.tsv` table, in which each row specifies a linkage criterion.
    - A `spine.tsv` file, containing:
-     - A `spineID` column, which is a hash of the spine's primary key that is specified in the schema used in the linkage configuration.
+     - An `EntityId` column, which uniquely identifies the entities specified in the spine.
+       Each EntityId is calculated as a hash of the spine's primary key that is specified in the schema used in the linkage configuration.
      - The columns of the spine's primary key.
    - Linked data tables. Each linked table contains:
      - The table's primary key columns, which enable the construction of linked content data.
-     - A `spineID` column which links the table to the spine.
-     - A `criteriaID` column that links to the `criteria.tsv` file, so that we can see, for each link, which linkage criteria were satisfied.
+     - An `EntityId` column which links the table to the spine.
+     - A `CriteriaId` column that links to the `criteria.tsv` file, so that we can see, for each link, which linkage criteria were satisfied.
 
 ### Summarise the results
 
