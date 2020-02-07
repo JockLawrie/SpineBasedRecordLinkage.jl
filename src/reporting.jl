@@ -51,7 +51,7 @@ The statuses are:
 
 - nonexistent: The record doesn't exist in the linkage run.
 - unlinked:    The record (in the table) exists and is not linked to the spine.
-- linked with criteria ID X: The record exists and is linked to the spine by criteriaID X.
+- linked with criteria ID X: The record exists and is linked to the spine by CriteriaId X.
 - existent:    The spine record exists in 1 linkage run but not the other.
 
 When reporting on just 1 linkage run the `status2` column is omitted from the result.
@@ -90,21 +90,21 @@ end
 # Compare 2 existing tables.
 
 function compare_spines!(result::Dict, fullpath1::String, fullpath2::String)
-    spineids1 = get_set_of_values(fullpath1, :spineID)
-    spineids2 = get_set_of_values(fullpath2, :spineID)
-    s = intersect(spineids1, spineids2)
+    entityids1 = get_set_of_values(fullpath1, :EntityId)
+    entityids2 = get_set_of_values(fullpath2, :EntityId)
+    s = intersect(entityids1, entityids2)
     k = ("spine", "existent", "existent")
     increment_value!(result, k, length(s))
-    s = setdiff(spineids1, spineids2)
+    s = setdiff(entityids1, entityids2)
     k = ("spine", "existent", "nonexistent")
     increment_value!(result, k, length(s))
-    s = setdiff(spineids2, spineids1)
+    s = setdiff(entityids2, entityids1)
     k = ("spine", "nonexistent", "existent")
     increment_value!(result, k, length(s))
 end
 
 function compare_nonspine_tables!(result::Dict, fullpath1::String, fullpath2::String, tablename::String)
-    recordid2criteriaid_1 = construct_recordid2criteriaid(fullpath1)  # recordID => criteriaID if linked, -1 if not linked (nonexistent records have no recordID)
+    recordid2criteriaid_1 = construct_recordid2criteriaid(fullpath1)  # recordID => CriteriaId if linked, -1 if not linked (nonexistent records have no recordID)
     recordid2criteriaid_2 = construct_recordid2criteriaid(fullpath2)
     for (recordid, criteriaid) in recordid2criteriaid_1
         status1 = linked_status(criteriaid)
@@ -147,8 +147,8 @@ The other status column is filled with "nonexistent".
 """
 function report_solitary_nonspine_table!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int, tablename::String)
     for row in CSV.Rows(fullpath; reusebuffer=true)
-        criteriaID    = getproperty(row, :criteriaID)
-        active_status = ismissing(criteriaID) ? "unlinked" : linked_status(criteriaID)
+        CriteriaId    = getproperty(row, :CriteriaId)
+        active_status = ismissing(CriteriaId) ? "unlinked" : linked_status(CriteriaId)
         k = status_number == 1 ? (tablename, active_status, "nonexistent") : (tablename, "nonexistent", active_status)
         increment_value!(result, k, 1)
     end
@@ -157,7 +157,7 @@ end
 ################################################################################
 # Utils
 
-linked_status(criteriaID) = criteriaID == "-1" ? "unlinked" : "linked with criteria ID $(criteriaID)"
+linked_status(CriteriaId) = CriteriaId == "-1" ? "unlinked" : "linked with criteria ID $(CriteriaId)"
 
 function run_checks(directory1::String, directory2::String, outfile::String, n_linkage_runs::Int)
     msgs = String[]
@@ -205,7 +205,7 @@ function increment_value!(d, k, n)
     end
 end
 
-"Returns: Dict(recordID => criteriaID if linked, -1 if not linked, ...). Nonexistent records have no recordID."
+"Returns: Dict(recordID => CriteriaId if linked, -1 if not linked, ...). Nonexistent records have no recordID."
 function construct_recordid2criteriaid(fullpath::String)
     result = Dict{UInt, String}()
     pk_colnames = construct_primarykey_colnames(fullpath)
@@ -213,9 +213,9 @@ function construct_recordid2criteriaid(fullpath::String)
     for row in CSV.Rows(fullpath; reusebuffer=true, use_mmap=true)
         recordid = construct_recordid(row, pk_colnames, pk_values)
         haskey(result, recordid) && continue
-        criteriaID = getproperty(row, :criteriaID)
-        criteriaID = ismissing(criteriaID) ? "-1" : criteriaID
-        result[recordid] = criteriaID
+        CriteriaId = getproperty(row, :CriteriaId)
+        CriteriaId = ismissing(CriteriaId) ? "-1" : CriteriaId
+        result[recordid] = CriteriaId
     end
     result
 end
@@ -223,8 +223,8 @@ end
 function construct_primarykey_colnames(fullpath::String)
     csvrows = CSV.Rows(fullpath; reusebuffer=true)
     result  = csvrows.names
-    splice!(result, findfirst(isequal(:spineID),    result))
-    splice!(result, findfirst(isequal(:criteriaID), result))
+    splice!(result, findfirst(isequal(:EntityId),   result))
+    splice!(result, findfirst(isequal(:CriteriaId), result))
     result
 end
 

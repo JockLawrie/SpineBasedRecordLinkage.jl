@@ -38,13 +38,13 @@ function run_linkage(configfile::String)
     # Init spine
     if isnothing(cfg.spine.datafile)
         @info "$(now()) Initialising spine"
-        colnames = vcat(:spineID, cfg.spine.schema.columnorder)
+        colnames = vcat(:EntityId, cfg.spine.schema.columnorder)
         coltypes = vcat(Union{Missing, UInt}, fill(Union{Missing, String}, length(colnames) - 1))
         spine    = DataFrame(coltypes, colnames, 0)
     else
         @info "$(now()) Importing spine"
         spine = DataFrame(CSV.File(cfg.spine.datafile; type=String))  # For performance only Strings are compared (avoids parsing values)
-        spine[!, :spineID] = [parse(UInt, x) for x in spine[!, :spineID]]
+        spine[!, :EntityId] = [parse(UInt, x) for x in spine[!, :EntityId]]
     end
 
     # Do the linkage for each table
@@ -54,7 +54,7 @@ function run_linkage(configfile::String)
         tablename = tablecriteria[1].tablename
         @info "$(now()) Starting linkage for table $(tablename)"
         tableschema   = cfg.tables[tablename].schema
-        data          = init_data(tableschema, 0)  # Columns are [:spineID, :criteriaID, primarykey_columns...]
+        data          = init_data(tableschema, 0)  # Columns are [:EntityId, :CriteriaId, primarykey_columns...]
         table_outfile = joinpath(cfg.output_directory, "output", "$(tablename)_linked.tsv")
         CSV.write(table_outfile, data; delim='\t')
 
@@ -74,9 +74,9 @@ end
 ################################################################################
 # Unexported
 
-"Returns a DataFrame with n rows and columns [:spineID, :criteriaID, tableschema.primarykey...]."
+"Returns a DataFrame with n rows and columns [:EntityId, :CriteriaId, tableschema.primarykey...]."
 function init_data(tableschema::TableSchema, n::Int)
-    colnames = vcat(:spineID, :criteriaID, tableschema.primarykey)
+    colnames = vcat(:EntityId, :CriteriaId, tableschema.primarykey)
     coltypes = vcat(Union{Missing, UInt}, Union{Missing, Int}, fill(Union{Missing, String}, length(tableschema.primarykey)))
     DataFrame(coltypes, colnames, n)
 end
@@ -97,8 +97,8 @@ function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}
     for row in CSV.Rows(table_infile; reusebuffer=true, use_mmap=true)
         # Store data primary key
         i_data += 1
-        data[i_data, :spineID]    = missing
-        data[i_data, :criteriaID] = missing
+        data[i_data, :EntityId]   = missing
+        data[i_data, :CriteriaId] = missing
         for colname in data_primarykey
             data[i_data, colname] = getproperty(row, colname)
         end
@@ -109,7 +109,7 @@ function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}
         nlinks, n_hasmissing = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
 
         # If row is unlinked, append it to the spine, update the TableIndexes and link
-        if append_to_spine && n_hasmissing < n_criteria && ismissing(data[i_data, :spineID])
+        if append_to_spine && n_hasmissing < n_criteria && ismissing(data[i_data, :EntityId])
             append_row_to_spine!(spine, spine_primarykey, row, spinecols)  # Create a new spine record
             for linkagecriteria in tablecriteria
                 tableindex = criteriaid2index[linkagecriteria.id]
@@ -156,13 +156,13 @@ function link_row_to_spine!(data, i_data::Int, row, spine, tablecriteria::Vector
         candidate_indices = tableindex.index[k]
 
         # Identify the spine record that best matches the row (if it exists)
-        spineid, i_spine = select_best_candidate(spine, candidate_indices, row, linkagecriteria.approxmatch)
-        spineid == 0 && continue  # None of the candidates satisfy the approxmatch criteria
+        entityid, i_spine = select_best_candidate(spine, candidate_indices, row, linkagecriteria.approxmatch)
+        entityid == 0 && continue  # None of the candidates satisfy the approxmatch criteria
 
         # Create a link between the spine and the data
         nlinks += 1
-        data[i_data, :spineID]    = spineid
-        data[i_data, :criteriaID] = criteriaid
+        data[i_data, :EntityId]   = entityid
+        data[i_data, :CriteriaId] = criteriaid
         break  # Row has been linked, no need to link on other criteria
     end
     nlinks, n_hasmissing
@@ -172,7 +172,7 @@ function select_best_candidate(spine, candidate_indices::Vector{Int}, row, appro
     if isempty(approxmatches)
         if length(candidate_indices) == 1
             i_spine = candidate_indices[1]
-            return spine[i_spine, :spineID], i_spine  # There is 1 candidate and no further selection criteria to be met
+            return spine[i_spine, :EntityId], i_spine  # There is 1 candidate and no further selection criteria to be met
         else
             return 0, 0  # There is more than 1 candidate and no way to select the best one
         end
@@ -196,7 +196,7 @@ function select_best_candidate(spine, candidate_indices::Vector{Int}, row, appro
         !ok && continue  # Not every ApproxMatch criterion is satisfied
         dist >= min_distance && continue  # distance(row, candidate) is not minimal among candidates tested so far
         min_distance = dist
-        result = spine[i_spine, :spineID], i_spine
+        result = spine[i_spine, :EntityId], i_spine
     end
     result
 end
@@ -204,7 +204,7 @@ end
 """
 Modified: spine.
 
-Append the row to the spine and return the spineid of the new row.
+Append the row to the spine and return the EntityId of the new row.
 """
 function append_row_to_spine!(spine, spine_primarykey, row, spinecols::Set{Symbol})
     d = Dict{Symbol, Union{Missing, String}}()
@@ -213,7 +213,7 @@ function append_row_to_spine!(spine, spine_primarykey, row, spinecols::Set{Symbo
     end
     push!(spine, d)
     i = size(spine, 1)
-    spine[i, :spineID] = hash(spine[i, spine_primarykey])
+    spine[i, :EntityId] = hash(spine[i, spine_primarykey])
 end
 
 ################################################################################
@@ -243,20 +243,20 @@ function get_package_version()
 end
 
 function construct_criteria_table(cfg::LinkageConfig)
-    colnames = (:criteriaID, :TableName, :ExactMatches, :ApproxMatches)
+    colnames = (:CriteriaId, :TableName, :ExactMatches, :ApproxMatches)
     coltypes = Tuple{Int, String, Dict{Symbol, Symbol}, Union{Missing, Vector{ApproxMatch}}}
     result   = NamedTuple{colnames, coltypes}[]
     for v in cfg.criteria
         for x in v
             am = isempty(x.approxmatch) ? missing : x.approxmatch
-            r  = (criteriaID=x.id, TableName=x.tablename, ExactMatches=x.exactmatch, ApproxMatches=am)
+            r  = (CriteriaId=x.id, TableName=x.tablename, ExactMatches=x.exactmatch, ApproxMatches=am)
             push!(result, r)
         end
     end
     DataFrame(result)
 end
 
-"Returns: Dict(criteriaid => TableIndex(spine, colnames))"
+"Returns: Dict(CriteriaId => TableIndex(spine, colnames))"
 function construct_table_indexes(criteria::Vector{LinkageCriteria}, spine)
     # Create TableIndexes
     tmp = Dict{Int, TableIndex}()

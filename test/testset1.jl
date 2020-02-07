@@ -17,22 +17,22 @@ ep       = DataFrame(CSV.File(joinpath(outdir1b, "output", "emergency_presentati
 ha       = DataFrame(CSV.File(joinpath(outdir1b, "output", "hospital_admissions_linked.tsv"); delim='\t'))
 ic       = DataFrame(CSV.File(joinpath(outdir1b, "output", "influenza_cases_linked.tsv"); delim='\t'))
 
-ep_linked = view(ep, .!ismissing.(ep[!, :spineID]), :)
-ha_linked = view(ha, .!ismissing.(ha[!, :spineID]), :)
-ic_linked = view(ic, .!ismissing.(ic[!, :spineID]), :)
+ep_linked = view(ep, .!ismissing.(ep[!, :EntityId]), :)
+ha_linked = view(ha, .!ismissing.(ha[!, :EntityId]), :)
+ic_linked = view(ic, .!ismissing.(ic[!, :EntityId]), :)
 
 @test size(ep_linked, 1) == 3  # 3 of 5 emergency presentations were also influenza cases
-@test size(view(ep_linked, ep_linked[!, :criteriaID] .== 1, :), 1) == 2  # 1 of 3 links made with criteria 1
-@test size(view(ep_linked, ep_linked[!, :criteriaID] .== 2, :), 1) == 1  # 1 of 3 links made with criteria 2
+@test size(view(ep_linked, ep_linked[!, :CriteriaId] .== 1, :), 1) == 2  # 1 of 3 links made with criteria 1
+@test size(view(ep_linked, ep_linked[!, :CriteriaId] .== 2, :), 1) == 1  # 1 of 3 links made with criteria 2
 
 @test size(ha_linked, 1) == 3  # 3 of 5 admissions were also influenza cases
-@test size(view(ha_linked, ha_linked[!, :criteriaID] .== 3, :), 1) == 3  # 3 of 3 links made with criteria 3
+@test size(view(ha_linked, ha_linked[!, :CriteriaId] .== 3, :), 1) == 3  # 3 of 3 links made with criteria 3
 
 @test size(ic_linked, 1) == size(ic, 1)  # All records linked because the spine was constructed from the influenza cases table
-@test size(view(ic_linked, ic_linked[!, :criteriaID] .== 4, :), 1) == 4  # 4 of 8 links made with criteria 4
-@test size(view(ic_linked, ic_linked[!, :criteriaID] .== 5, :), 1) == 2  # 2 of 8 links made with criteria 5
-@test size(view(ic_linked, ic_linked[!, :criteriaID] .== 6, :), 1) == 1  # 1 of 8 links made with criteria 6
-@test size(view(ic_linked, ic_linked[!, :criteriaID] .== 7, :), 1) == 1  # 1 of 8 links made with criteria 7
+@test size(view(ic_linked, ic_linked[!, :CriteriaId] .== 4, :), 1) == 4  # 4 of 8 links made with criteria 4
+@test size(view(ic_linked, ic_linked[!, :CriteriaId] .== 5, :), 1) == 2  # 2 of 8 links made with criteria 5
+@test size(view(ic_linked, ic_linked[!, :CriteriaId] .== 6, :), 1) == 1  # 1 of 8 links made with criteria 6
+@test size(view(ic_linked, ic_linked[!, :CriteriaId] .== 7, :), 1) == 1  # 1 of 8 links made with criteria 7
 
 println("Reporting")
 outfile = joinpath(outdir, "linkage_report.csv")
