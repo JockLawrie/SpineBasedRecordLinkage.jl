@@ -48,11 +48,11 @@ function run_linkage(configfile::String)
     end
 
     # Init Links table
-    links         = DataFrame([UInt, UInt, Int], [:EventId, :EntityId, :CriteriaId], 0)
+    links         = DataFrame([String, UInt, UInt, Int], [:TableName, :EventId, :EntityId, :CriteriaId], 0)
     nlinks        = 0  # Number of rows in the links table stored on disk
     links_outfile = joinpath(cfg.output_directory, "output", "links.tsv")
     CSV.write(links_outfile, links; delim='\t')
-    links = DataFrame([UInt, UInt, Int], [:EventId, :EntityId, :CriteriaId], 1_000_000)  # Initially filled with junk
+    links = DataFrame([String, UInt, UInt, Int], [:TableName, :EventId, :EntityId, :CriteriaId], 1_000_000)  # Initially filled with junk
 
     # Do the linkage for each events table
     spine_primarykey = cfg.spine.schema.primarykey
@@ -104,7 +104,7 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
     i_events   = 0  # Number of this table's rows stored in-memory
     nevents    = 0  # Number of this table's rows stored on disk
     i_links    = 0  # Number of this table's rows stored in the in-memory links table
-    tablename  = events_schema.name
+    tablename  = String(events_schema.name)
     spinecols  = Set(names(spine))
     n_criteria = length(tablecriteria)
     events_primarykey = events_schema.primarykey
@@ -122,7 +122,7 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
         # Link the eventrow to the spine using the first LinkageCriteria that are satisfied (if any)
         # n_hasmissing = Number of criteria for which eventrow has missing data
         # If n_hasmissing == n_criteria then the entity in the eventrow cannot be appended to the spine because no criteria can be satisfied
-        i_links, n_hasmissing, islinked = link_event_to_spine!(eventrow, eventid, spine, links, i_links, tablecriteria, criteriaid2index, criteriaid2key)
+        i_links, n_hasmissing, islinked = link_event_to_spine!(eventrow, eventid, spine, links, i_links, tablecriteria, criteriaid2index, criteriaid2key, tablename)
 
         # If eventrow is unlinked, append it to the spine, update the TableIndexes and link
         if append_to_spine && n_hasmissing < n_criteria && !islinked
@@ -131,7 +131,7 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
                 tableindex = criteriaid2index[linkagecriteria.id]
                 update!(tableindex, spine, size(spine, 1))  # Update the tableindex
             end
-            i_links, n_hasmissing, islinked = link_event_to_spine!(eventrow, eventid, spine, links, i_links, tablecriteria, criteriaid2index, criteriaid2key)
+            i_links, n_hasmissing, islinked = link_event_to_spine!(eventrow, eventid, spine, links, i_links, tablecriteria, criteriaid2index, criteriaid2key, tablename)
         end
 
         # If events table is full, write to disk
@@ -169,7 +169,7 @@ Modified: events[i_events, :]
 If possible, link the eventrow to the spine using the first LinkageCriteria that are satisfied (if any).
 Record the linkage in the events table.
 """
-function link_event_to_spine!(eventrow, eventid::UInt, spine, links::DataFrame, i_links::Int, tablecriteria::Vector{LinkageCriteria}, criteriaid2index, criteriaid2key)
+function link_event_to_spine!(eventrow, eventid::UInt, spine, links::DataFrame, i_links::Int, tablecriteria::Vector{LinkageCriteria}, criteriaid2index, criteriaid2key, tablename)
     n_hasmissing = 0  # Number of criteria for which row has missing data
     islinked     = false
     for linkagecriteria in tablecriteria
@@ -192,6 +192,7 @@ function link_event_to_spine!(eventrow, eventid::UInt, spine, links::DataFrame, 
         # Create a link between the spine and the events data
         islinked = true
         i_links += 1
+        links[i_links, :TableName]  = tablename
         links[i_links, :EventId]    = eventid
         links[i_links, :EntityId]   = entityid
         links[i_links, :CriteriaId] = criteriaid

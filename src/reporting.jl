@@ -68,7 +68,8 @@ function report_on_linkage_runs(directory1::String, directory2::String, outfile:
     filelist  = sort!([x for x in filelist])
     for filename in filelist
         filename == "criteria.tsv" && continue
-        tablename = filename == "spine.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
+        filename == "links.tsv"    && continue
+        tablename = filename == "spine.tsv" ? "spine" : filename[1:(findfirst("_with_eventid.tsv", filename)[1] - 1)]
         @info "$(now()) Reporting results for table $(tablename)"
         fullpath1 = joinpath(outdir1, filename)
         fullpath2 = joinpath(outdir2, filename)
@@ -146,18 +147,35 @@ The specified status column (:statusX, where x == status_number) and the nrecord
 The other status column is filled with "nonexistent".
 """
 function report_solitary_nonspine_table!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int, tablename::String)
-    for row in CSV.Rows(fullpath; reusebuffer=true)
+    nevents    = countrows(fullpath)
+    nlinks     = 0
+    links_path = joinpath(dirname(fullpath), "links.tsv")
+    for row in CSV.Rows(links_path; reusebuffer=true)
+        tname = getproperty(row, :TableName)
+        tname != tablename && continue
+        nlinks       += 1
         CriteriaId    = getproperty(row, :CriteriaId)
-        active_status = ismissing(CriteriaId) ? "unlinked" : linked_status(CriteriaId)
+        active_status = linked_status(CriteriaId)
         k = status_number == 1 ? (tablename, active_status, "nonexistent") : (tablename, "nonexistent", active_status)
         increment_value!(result, k, 1)
     end
+    n_unlinked = nevents - nlinks
+    k = status_number == 1 ? (tablename, "unlinked", "nonexistent") : (tablename, "unlinked", active_status)
+    increment_value!(result, k, n_unlinked)
 end
 
 ################################################################################
 # Utils
 
-linked_status(CriteriaId) = CriteriaId == "-1" ? "unlinked" : "linked with criteria ID $(CriteriaId)"
+linked_status(CriteriaId) = "linked with criteria ID $(CriteriaId)"
+
+function countrows(fullpath::String)
+    n = 0
+    for row in CSV.Rows(fullpath; reusebuffer=true, mmap=true)
+        n += 1
+    end
+    n
+end
 
 function run_checks(directory1::String, directory2::String, outfile::String, n_linkage_runs::Int)
     msgs = String[]
