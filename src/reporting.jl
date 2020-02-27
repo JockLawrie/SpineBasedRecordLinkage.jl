@@ -66,6 +66,8 @@ function report_on_linkage_runs(directory1::String, directory2::String, outfile:
     filelist2 = n_linkage_runs == 2 ? [x for x in readdir(outdir2) if isfile(joinpath(outdir2, x))] : String[]
     filelist  = Set(vcat(filelist1, filelist1))
     filelist  = sort!([x for x in filelist])
+    entityids1 = get_set_of_values(joinpath(outdir1, "spine.tsv"), :EntityId)
+    entityids2 = n_linkage_runs == 2 ? get_set_of_values(joinpath(outdir2, "spine.tsv"), :EntityId) : Set{String}()
     for filename in filelist
         filename == "criteria.tsv" && continue
         filename == "links.tsv"    && continue
@@ -75,9 +77,9 @@ function report_on_linkage_runs(directory1::String, directory2::String, outfile:
         fullpath2 = joinpath(outdir2, filename)
         d         = Dict{Tuple{String, String, String}, Int}()  # (tablename, status1, status2) => nrecords
         if tablename == "spine"
-            isfile(fullpath1)  && isfile(fullpath2)  && compare_spines!(d, fullpath1, fullpath2)
-            isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_spine!(d, fullpath1, 1)
-            !isfile(fullpath1) && isfile(fullpath2)  && report_solitary_spine!(d, fullpath2, 2)
+            isfile(fullpath1)  && isfile(fullpath2)  && compare_spines!(d, entityids1, entityids2)
+            isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_spine!(d, entityids1, 1)
+            !isfile(fullpath1) && isfile(fullpath2)  && report_solitary_spine!(d, entityids2, 2)
         else
             isfile(fullpath1)  && isfile(fullpath2)  && compare_nonspine_tables!(d, fullpath1, fullpath2, tablename)
             isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_nonspine_table!(d, fullpath1, 1, tablename)
@@ -90,9 +92,7 @@ end
 ################################################################################
 # Compare 2 existing tables.
 
-function compare_spines!(result::Dict, fullpath1::String, fullpath2::String)
-    entityids1 = get_set_of_values(fullpath1, :EntityId)
-    entityids2 = get_set_of_values(fullpath2, :EntityId)
+function compare_spines!(result::Dict, entityids1, entityids2)
     s = intersect(entityids1, entityids2)
     k = ("spine", "existent", "existent")
     increment_value!(result, k, length(s))
@@ -105,15 +105,17 @@ function compare_spines!(result::Dict, fullpath1::String, fullpath2::String)
 end
 
 function compare_nonspine_tables!(result::Dict, fullpath1::String, fullpath2::String, tablename::String)
-    recordid2criteriaid_1 = construct_recordid2criteriaid(fullpath1)  # recordID => CriteriaId if linked, -1 if not linked (nonexistent records have no recordID)
-    recordid2criteriaid_2 = construct_recordid2criteriaid(fullpath2)
-    for (recordid, criteriaid) in recordid2criteriaid_1
+    entityid2criteraid1 = construct_entityid2criteriaid(joinpath(dirname(fullpath1), "links.tsv"), tablename) # entityid => criteriaid for events in tablename
+    entityid2criteraid2 = construct_entityid2criteriaid(joinpath(dirname(fullpath2), "links.tsv"), tablename)
+   # recordid2criteriaid_1 = construct_recordid2criteriaid(fullpath1)  # recordID => CriteriaId if linked, -1 if not linked (nonexistent records have no recordID)
+   # recordid2criteriaid_2 = construct_recordid2criteriaid(fullpath2)
+    for (entityid, criteriaid) in entityid2criteraid1
         status1 = linked_status(criteriaid)
-        if haskey(recordid2criteriaid_2, recordid)
-            c2 = recordid2criteriaid_2[recordid]
+        if haskey(entityid2criteraid2, entityid)
+            c2 = entityid2criteraid2[entityid]
             status2 = linked_status(c2)
         else
-            status2 = "nonexistent"
+            status2 = "nonexistent"  # Either unlinked or nonexistent
         end
         k = (tablename, status1, status2)
         increment_value!(result, k, 1)
@@ -129,13 +131,10 @@ end
 ################################################################################
 # Report on a table that exists in only 1 linkage run.
 
-function report_solitary_spine!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int)
-    tablename = "spine"
-    for row in CSV.Rows(fullpath; reusebuffer=true)
-        active_status = "existent"
-        k = status_number == 1 ? (tablename, active_status, "nonexistent") : (tablename, "nonexistent", active_status)
-        increment_value!(result, k, 1)
-    end
+function report_solitary_spine!(result::Dict{Tuple{String, String, String}, Int}, entityids, status_number::Int)
+    n = length(entityids)
+    k = status_number == 1 ? ("spine", "existent", "nonexistent") : ("spine", "nonexistent", "existent")
+    increment_value!(result, k, n)
 end
 
 """

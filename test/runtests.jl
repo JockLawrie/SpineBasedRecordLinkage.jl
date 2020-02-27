@@ -36,5 +36,5 @@ end
 cleanup()
 include("testset1.jl")  # Construct spine from 1 table (influenza cases)
 include("testset2.jl")  # Construct spine from multiple data sets
-include("testset3.jl")  # Compare the results from test sets 1 and 2
+#include("testset3.jl")  # Compare the results from test sets 1 and 2
 cleanup()
