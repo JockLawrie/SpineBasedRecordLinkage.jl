@@ -72,7 +72,7 @@ function run_linkage(configfile::String)
                                        events_infile, events_outfile, events_schema, tablecriteria)
     end
 
-    @info "$(now()) Writing spine to the output directory ($(size(spine, 1)) rows)"
+    @info "$(now()) Writing spine to the output directory ($(format_number(size(spine, 1))) rows)"
     spine_outfile = joinpath(cfg.output_directory, "output", "spine.tsv")
     CSV.write(spine_outfile, spine; delim='\t')
 
@@ -100,6 +100,7 @@ For each eventrow in the events table:
 function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::String,
                                spine::DataFrame, spine_primarykey::Vector{Symbol}, append_to_spine::Bool,
                                events_infile::String, events_outfile::String, events_schema::TableSchema, tablecriteria::Vector{LinkageCriteria})
+    nlinks0    = nlinks  # Number of links due to other tables
     events     = init_events(events_schema, 1_000_000)  # Process the events in batches of 1_000_000 rows
     i_events   = 0  # Number of this table's rows stored in-memory
     nevents    = 0  # Number of this table's rows stored on disk
@@ -138,7 +139,7 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
         if i_events == 1_000_000
             CSV.write(events_outfile, events; delim='\t', append=true)
             nevents += i_events
-            @info "$(now()) Exported $(div(nevents, 1_000_000))M rows of table $(tablename)"
+            @info "$(now()) Exported $(div(nevents, 1_000_000))M rows of $(tablename)"
             i_events = 0  # Reset the eventrow number
         end
 
@@ -146,19 +147,19 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
         if i_links == 1_000_000
             CSV.write(links_outfile, links; delim='\t', append=true)
             nlinks += i_links
-            @info "$(now()) Exported $(format_number(nlinks)) links"
+            @info "$(now()) Exported $(div(nlinks - nlinks0, 1_000_000))M links between $(tablename) and the spine"
             i_links = 0  # Reset the row number
         end
     end
     if i_events != 0  # Write remaining events if they exist
         CSV.write(events_outfile, view(events, 1:i_events, :); append=true, delim='\t')
         nevents += i_events
-        @info "$(now()) Exported $(format_number(nevents)) rows of table $(tablename)"
+        @info "$(now()) Exported $(format_number(nevents)) rows of $(tablename)"
     end
-    if i_links != 0  # Write remaining events if they exist
+    if i_links != 0  # Write remaining links if they exist
         CSV.write(links_outfile, view(links, 1:i_links, :); append=true, delim='\t')
         nlinks += i_links
-        @info "$(now()) Exported $(format_number(nlinks)) links"
+        @info "$(now()) Exported $(format_number(nlinks - nlinks0)) links between $(tablename) and the spine"
     end
     nlinks
 end
