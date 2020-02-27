@@ -47,23 +47,32 @@ function run_linkage(configfile::String)
         spine[!, :EntityId] = [parse(UInt, x) for x in spine[!, :EntityId]]
     end
 
-    # Do the linkage for each table
+    # Init Links table
+    links         = DataFrame([String, UInt, UInt, Int], [:TableName, :EventId, :EntityId, :CriteriaId], 0)
+    nlinks        = 0  # Number of rows in the links table stored on disk
+    links_outfile = joinpath(cfg.output_directory, "output", "links.tsv")
+    CSV.write(links_outfile, links; delim='\t')
+    links = DataFrame([String, UInt, UInt, Int], [:TableName, :EventId, :EntityId, :CriteriaId], 1_000_000)  # Initially filled with junk
+
+    # Do the linkage for each events table
     spine_primarykey = cfg.spine.schema.primarykey
     for tablecriteria in cfg.criteria
-        # Create an empty output file for the data and store it in the output directory
+        # Create an empty output file for the events table and store it in the output directory
         tablename = tablecriteria[1].tablename
         @info "$(now()) Starting linkage for table $(tablename)"
-        tableschema   = cfg.tables[tablename].schema
-        data          = init_data(tableschema, 0)  # Columns are [:EntityId, :CriteriaId, primarykey_columns...]
-        table_outfile = joinpath(cfg.output_directory, "output", "$(tablename)_linked.tsv")
-        CSV.write(table_outfile, data; delim='\t')
+        events_schema  = cfg.tables[tablename].schema
+        events         = init_events(events_schema, 0)  # Columns are [:EventId, primarykey_columns...]
+        events_outfile = joinpath(cfg.output_directory, "output", "$(tablename)_with_eventid.tsv")
+        CSV.write(events_outfile, events; delim='\t')
 
         # Run the data through each linkage iteration
-        table_infile = cfg.tables[tablename].datafile
-        link_table_to_spine!(spine, spine_primarykey, cfg.append_to_spine, table_infile, table_outfile, tableschema, tablecriteria)
+        events_infile = cfg.tables[tablename].datafile
+        nlinks = link_table_to_events!(links, nlinks, links_outfile,
+                                       spine, spine_primarykey, cfg.append_to_spine,
+                                       events_infile, events_outfile, events_schema, tablecriteria)
     end
 
-    @info "$(now()) Writing spine to the output directory ($(size(spine, 1)) rows)"
+    @info "$(now()) Writing spine to the output directory ($(format_number(size(spine, 1))) rows)"
     spine_outfile = joinpath(cfg.output_directory, "output", "spine.tsv")
     CSV.write(spine_outfile, spine; delim='\t')
 
@@ -74,98 +83,123 @@ end
 ################################################################################
 # Unexported
 
-"Returns a DataFrame with n rows and columns [:EntityId, :CriteriaId, tableschema.primarykey...]."
-function init_data(tableschema::TableSchema, n::Int)
-    colnames = vcat(:EntityId, :CriteriaId, tableschema.primarykey)
-    coltypes = vcat(Union{Missing, UInt}, Union{Missing, Int}, fill(Union{Missing, String}, length(tableschema.primarykey)))
+"Returns a DataFrame with n rows and columns [:EventId, events_schema.primarykey...]."
+function init_events(events_schema::TableSchema, n::Int)
+    colnames = vcat(:EventId, events_schema.primarykey)
+    coltypes = vcat(Union{Missing, UInt}, fill(Union{Missing, String}, length(events_schema.primarykey)))
     DataFrame(coltypes, colnames, n)
 end
 
-"Modified: spine"
-function link_table_to_spine!(spine::DataFrame, spine_primarykey::Vector{Symbol}, append_to_spine::Bool,
-                              table_infile::String, table_outfile::String, tableschema::TableSchema, tablecriteria::Vector{LinkageCriteria})
-    data       = init_data(tableschema, 1_000_000)  # Process the data in batches of 1_000_000 rows
-    i_data     = 0
-    ndata      = 0
-    nlinks     = 0
-    tablename  = tableschema.name
+"""
+Modified: links, spine.
+
+For each eventrow in the events table:
+1. If the eventrow concerns an entity in the spine, append a row to links.
+2. Else if append_to_spine is true, append a row to the spine and link it to the eventrow.
+"""
+function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::String,
+                               spine::DataFrame, spine_primarykey::Vector{Symbol}, append_to_spine::Bool,
+                               events_infile::String, events_outfile::String, events_schema::TableSchema, tablecriteria::Vector{LinkageCriteria})
+    nlinks0    = nlinks  # Number of links due to other tables
+    events     = init_events(events_schema, 1_000_000)  # Process the events in batches of 1_000_000 rows
+    i_events   = 0  # Number of this table's rows stored in-memory
+    nevents    = 0  # Number of this table's rows stored on disk
+    i_links    = 0  # Number of this table's rows stored in the in-memory links table
+    tablename  = String(events_schema.name)
     spinecols  = Set(names(spine))
     n_criteria = length(tablecriteria)
-    data_primarykey  = tableschema.primarykey
-    criteriaid2index = construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
-    criteriaid2key   = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
-    for row in CSV.Rows(table_infile; reusebuffer=true, use_mmap=true)
-        # Store data primary key
-        i_data += 1
-        data[i_data, :EntityId]   = missing
-        data[i_data, :CriteriaId] = missing
-        for colname in data_primarykey
-            data[i_data, colname] = getproperty(row, colname)
+    events_primarykey = events_schema.primarykey
+    criteriaid2index  = construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
+    criteriaid2key    = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
+    for eventrow in CSV.Rows(events_infile; reusebuffer=true, use_mmap=true)
+        # Store events primary key and EventId
+        i_events += 1
+        for colname in events_primarykey
+            events[i_events, colname] = getproperty(eventrow, colname)
         end
+        eventid = hash(events[i_events, events_primarykey])
+        events[i_events, :EventId] = eventid
 
-        # Link the row to the spine using the first LinkageCriteria that are satisfied (if any)
-        # n_hasmissing = Number of criteria for which row has missing data
-        # If n_hasmissing == n_criteria then the row cannot be appended to the spine because no criteria can be satisfied
-        nlinks, n_hasmissing = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
+        # Link the eventrow to the spine using the first LinkageCriteria that are satisfied (if any)
+        # n_hasmissing = Number of criteria for which eventrow has missing data
+        # If n_hasmissing == n_criteria then the entity in the eventrow cannot be appended to the spine because no criteria can be satisfied
+        i_links, n_hasmissing, islinked = link_event_to_spine!(eventrow, eventid, spine, links, i_links, tablecriteria, criteriaid2index, criteriaid2key, tablename)
 
-        # If row is unlinked, append it to the spine, update the TableIndexes and link
-        if append_to_spine && n_hasmissing < n_criteria && ismissing(data[i_data, :EntityId])
-            append_row_to_spine!(spine, spine_primarykey, row, spinecols)  # Create a new spine record
+        # If eventrow is unlinked, append it to the spine, update the TableIndexes and link
+        if append_to_spine && n_hasmissing < n_criteria && !islinked
+            append_row_to_spine!(spine, spine_primarykey, eventrow, spinecols)  # Create a new spine record
             for linkagecriteria in tablecriteria
                 tableindex = criteriaid2index[linkagecriteria.id]
                 update!(tableindex, spine, size(spine, 1))  # Update the tableindex
             end
-            nlinks, n_hasmissing = link_row_to_spine!(data, i_data, row, spine, tablecriteria, criteriaid2index, criteriaid2key, nlinks, spinecols)
+            i_links, n_hasmissing, islinked = link_event_to_spine!(eventrow, eventid, spine, links, i_links, tablecriteria, criteriaid2index, criteriaid2key, tablename)
         end
 
-        # If data is full, write to disk
-        if i_data == 1_000_000
-            CSV.write(table_outfile, data; delim='\t', append=true)
-            ndata += i_data
-            @info "$(now()) Exported $(ndata) rows of table $(tablename)"
-            i_data = 0  # Reset the row number
+        # If events table is full, write to disk
+        if i_events == 1_000_000
+            CSV.write(events_outfile, events; delim='\t', append=true)
+            nevents += i_events
+            @info "$(now()) Exported $(div(nevents, 1_000_000))M rows of $(tablename)"
+            i_events = 0  # Reset the eventrow number
+        end
+
+        # If links table is full, write to disk
+        if i_links == 1_000_000
+            CSV.write(links_outfile, links; delim='\t', append=true)
+            nlinks += i_links
+            @info "$(now()) Exported $(div(nlinks - nlinks0, 1_000_000))M links between $(tablename) and the spine"
+            i_links = 0  # Reset the row number
         end
     end
-    if i_data != 0  # Write remaining rows if they exist
-        CSV.write(table_outfile, view(data, 1:i_data, :); append=true, delim='\t')
-        ndata += i_data
-        @info "$(now()) Exported $(ndata) rows of table $(tablename)"
+    if i_events != 0  # Write remaining events if they exist
+        CSV.write(events_outfile, view(events, 1:i_events, :); append=true, delim='\t')
+        nevents += i_events
+        @info "$(now()) Exported $(format_number(nevents)) rows of $(tablename)"
     end
-    @info "$(now()) $(nlinks) rows of table $(tablename) were linked to the spine."
+    if i_links != 0  # Write remaining links if they exist
+        CSV.write(links_outfile, view(links, 1:i_links, :); append=true, delim='\t')
+        nlinks += i_links
+        @info "$(now()) Exported $(format_number(nlinks - nlinks0)) links between $(tablename) and the spine"
+    end
+    nlinks
 end
 
 """
-Modified: data[i_data, :]
+Modified: events[i_events, :]
 
-Link the row to the spine using the first LinkageCriteria that are satisfied (if any).
+If possible, link the eventrow to the spine using the first LinkageCriteria that are satisfied (if any).
+Record the linkage in the events table.
 """
-function link_row_to_spine!(data, i_data::Int, row, spine, tablecriteria::Vector{LinkageCriteria},
-                            criteriaid2index, criteriaid2key, nlinks::Int, spinecols::Set{Symbol})
+function link_event_to_spine!(eventrow, eventid::UInt, spine, links::DataFrame, i_links::Int, tablecriteria::Vector{LinkageCriteria}, criteriaid2index, criteriaid2key, tablename)
     n_hasmissing = 0  # Number of criteria for which row has missing data
+    islinked     = false
     for linkagecriteria in tablecriteria
         # Identify the spine records that match the row on linkagecriteria.exactmatch
         criteriaid = linkagecriteria.id
         tableindex = criteriaid2index[criteriaid]
-        hasmissing = constructkey!(criteriaid2key[criteriaid], row, tableindex.colnames)
+        hasmissing = constructkey!(criteriaid2key[criteriaid], eventrow, tableindex.colnames)
         if hasmissing
             n_hasmissing += 1
             continue  # datarow[tableindex.colnames] includes a missing value
         end
         k = Tuple(criteriaid2key[criteriaid])
-        !haskey(tableindex.index, k) && continue  # Row doesn't match any spine records on linkagecriteria.exactmatch
+        !haskey(tableindex.index, k) && continue  # eventrow doesn't match any spine records on linkagecriteria.exactmatch
         candidate_indices = tableindex.index[k]
 
-        # Identify the spine record that best matches the row (if it exists)
-        entityid, i_spine = select_best_candidate(spine, candidate_indices, row, linkagecriteria.approxmatch)
+        # Identify the spine record that best matches the eventrow (if it exists)
+        entityid, i_spine = select_best_candidate(spine, candidate_indices, eventrow, linkagecriteria.approxmatch)
         entityid == 0 && continue  # None of the candidates satisfy the approxmatch criteria
 
-        # Create a link between the spine and the data
-        nlinks += 1
-        data[i_data, :EntityId]   = entityid
-        data[i_data, :CriteriaId] = criteriaid
-        break  # Row has been linked, no need to link on other criteria
+        # Create a link between the spine and the events data
+        islinked = true
+        i_links += 1
+        links[i_links, :TableName]  = tablename
+        links[i_links, :EventId]    = eventid
+        links[i_links, :EntityId]   = entityid
+        links[i_links, :CriteriaId] = criteriaid
+        break  # eventrow has been linked, no need to link on other criteria
     end
-    nlinks, n_hasmissing
+    i_links, n_hasmissing, islinked
 end
 
 function select_best_candidate(spine, candidate_indices::Vector{Int}, row, approxmatches::Vector{ApproxMatch})
@@ -240,6 +274,23 @@ function get_package_version()
             return pkg_version
         end
     end
+end
+
+"Convert integer to string and insert commas for pretty printing."
+function format_number(x::Int)
+    s      = string(x)
+    n      = length(s)
+    lead   = rem(n, 3)  # Number of digits before the 1st comma
+    lead   = lead == 0 ? 3 : lead
+    result = s[1:lead]
+    n_done = lead
+    for i= 1:100  # Append remaining digits in groups of 3
+        n_done == n && break
+        s2 = ",$(s[(n_done + 1):(n_done + 3)])"
+        result = result * s2
+        n_done += 3
+    end
+    result
 end
 
 function construct_criteria_table(cfg::LinkageConfig)

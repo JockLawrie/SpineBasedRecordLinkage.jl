@@ -68,7 +68,8 @@ function report_on_linkage_runs(directory1::String, directory2::String, outfile:
     filelist  = sort!([x for x in filelist])
     for filename in filelist
         filename == "criteria.tsv" && continue
-        tablename = filename == "spine.tsv" ? "spine" : filename[1:(findfirst("_linked.tsv", filename)[1] - 1)]
+        filename == "links.tsv"    && continue
+        tablename = filename == "spine.tsv" ? "spine" : filename[1:(findfirst("_with_eventid.tsv", filename)[1] - 1)]
         @info "$(now()) Reporting results for table $(tablename)"
         fullpath1 = joinpath(outdir1, filename)
         fullpath2 = joinpath(outdir2, filename)
@@ -78,9 +79,9 @@ function report_on_linkage_runs(directory1::String, directory2::String, outfile:
             isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_spine!(d, fullpath1, 1)
             !isfile(fullpath1) && isfile(fullpath2)  && report_solitary_spine!(d, fullpath2, 2)
         else
-            isfile(fullpath1)  && isfile(fullpath2)  && compare_nonspine_tables!(d, fullpath1, fullpath2, tablename)
-            isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_nonspine_table!(d, fullpath1, 1, tablename)
-            !isfile(fullpath1) && isfile(fullpath2)  && report_solitary_nonspine_table!(d, fullpath2, 2, tablename)
+            isfile(fullpath1)  && isfile(fullpath2)  && compare_event_tables!(d, fullpath1, fullpath2, tablename)
+            isfile(fullpath1)  && !isfile(fullpath2) && report_solitary_event_table!(d, fullpath1, 1, tablename)
+            !isfile(fullpath1) && isfile(fullpath2)  && report_solitary_event_table!(d, fullpath2, 2, tablename)
         end
         append_to_result(d, outfile, dlm, n_linkage_runs)
     end
@@ -89,9 +90,9 @@ end
 ################################################################################
 # Compare 2 existing tables.
 
-function compare_spines!(result::Dict, fullpath1::String, fullpath2::String)
-    entityids1 = get_set_of_values(fullpath1, :EntityId)
-    entityids2 = get_set_of_values(fullpath2, :EntityId)
+function compare_spines!(result::Dict, spinepath1::String, spinepath2::String)
+    entityids1 = get_set_of_values(spinepath1, :EntityId)
+    entityids2 = get_set_of_values(spinepath2, :EntityId)
     s = intersect(entityids1, entityids2)
     k = ("spine", "existent", "existent")
     increment_value!(result, k, length(s))
@@ -103,24 +104,22 @@ function compare_spines!(result::Dict, fullpath1::String, fullpath2::String)
     increment_value!(result, k, length(s))
 end
 
-function compare_nonspine_tables!(result::Dict, fullpath1::String, fullpath2::String, tablename::String)
-    recordid2criteriaid_1 = construct_recordid2criteriaid(fullpath1)  # recordID => CriteriaId if linked, -1 if not linked (nonexistent records have no recordID)
-    recordid2criteriaid_2 = construct_recordid2criteriaid(fullpath2)
-    for (recordid, criteriaid) in recordid2criteriaid_1
-        status1 = linked_status(criteriaid)
-        if haskey(recordid2criteriaid_2, recordid)
-            c2 = recordid2criteriaid_2[recordid]
-            status2 = linked_status(c2)
-        else
-            status2 = "nonexistent"
-        end
-        k = (tablename, status1, status2)
+function compare_event_tables!(result::Dict, fullpath1::String, fullpath2::String, tablename::String)
+    eventids1 = get_set_of_values(fullpath1, :EventId)
+    eventids2 = get_set_of_values(fullpath2, :EventId)
+    eventid2criteraid1 = construct_eventid2criteriaid(joinpath(dirname(fullpath1), "links.tsv"), tablename) # eventid => criteriaid for events in tablename
+    eventid2criteraid2 = construct_eventid2criteriaid(joinpath(dirname(fullpath2), "links.tsv"), tablename)
+    for eventid in eventids1
+        status1 = haskey(eventid2criteraid1, eventid) ? linkage_status(eventid2criteraid1[eventid]) : "unlinked"
+        status2 = linkage_status(eventid, eventids2, eventid2criteraid2)
+        k       = (tablename, status1, status2)
         increment_value!(result, k, 1)
     end
-    for (recordid, criteriaid) in recordid2criteriaid_2
-        haskey(recordid2criteriaid_1, recordid) && continue  # Already processed this recordid
-        status2 = linked_status(criteriaid)
-        k = (tablename, "nonexistent", status2)
+    for eventid in eventids2
+        in(eventid, eventids1) && continue  # Already processed this eventid
+        status1 = linkage_status(eventid, eventids1, eventid2criteraid1)
+        status2 = haskey(eventid2criteraid2, eventid) ? linkage_status(eventid2criteraid2[eventid]) : "unlinked"     
+        k       = (tablename, status1, status2)
         increment_value!(result, k, 1)
     end
 end
@@ -128,13 +127,11 @@ end
 ################################################################################
 # Report on a table that exists in only 1 linkage run.
 
-function report_solitary_spine!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int)
-    tablename = "spine"
-    for row in CSV.Rows(fullpath; reusebuffer=true)
-        active_status = "existent"
-        k = status_number == 1 ? (tablename, active_status, "nonexistent") : (tablename, "nonexistent", active_status)
-        increment_value!(result, k, 1)
-    end
+function report_solitary_spine!(result::Dict{Tuple{String, String, String}, Int}, spinepath::String, status_number)
+    entityids = get_set_of_values(spinepath, :EntityId)
+    n = length(entityids)
+    k = status_number == 1 ? ("spine", "existent", "nonexistent") : ("spine", "nonexistent", "existent")
+    increment_value!(result, k, n)
 end
 
 """
@@ -145,19 +142,35 @@ The tablenamne is derived from filename.
 The specified status column (:statusX, where x == status_number) and the nrecords column are filled appropriately.
 The other status column is filled with "nonexistent".
 """
-function report_solitary_nonspine_table!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int, tablename::String)
-    for row in CSV.Rows(fullpath; reusebuffer=true)
+function report_solitary_event_table!(result::Dict{Tuple{String, String, String}, Int}, fullpath::String, status_number::Int, tablename::String)
+    eventids   = get_set_of_values(fullpath, :EventId)
+    nevents    = length(eventids)
+    nlinks     = 0
+    links_path = joinpath(dirname(fullpath), "links.tsv")
+    for row in CSV.Rows(links_path; reusebuffer=true)
+        tname = getproperty(row, :TableName)
+        tname != tablename && continue
+        nlinks       += 1
         CriteriaId    = getproperty(row, :CriteriaId)
-        active_status = ismissing(CriteriaId) ? "unlinked" : linked_status(CriteriaId)
+        active_status = linkage_status(CriteriaId)
         k = status_number == 1 ? (tablename, active_status, "nonexistent") : (tablename, "nonexistent", active_status)
         increment_value!(result, k, 1)
     end
+    n_unlinked = nevents - nlinks
+    k = status_number == 1 ? (tablename, "unlinked", "nonexistent") : (tablename, "unlinked", active_status)
+    increment_value!(result, k, n_unlinked)
 end
 
 ################################################################################
 # Utils
 
-linked_status(CriteriaId) = CriteriaId == "-1" ? "unlinked" : "linked with criteria ID $(CriteriaId)"
+linkage_status(criteriaid) = "linked with criteria ID $(criteriaid)"
+
+function linkage_status(eventid, eventids, eventid2criteraid)
+    haskey(eventid2criteraid, eventid) && return linkage_status(eventid2criteraid[eventid])  # Linked (exists in links)
+    in(eventid, eventids) && return "unlinked"  # Unlinked (exists in events but not in links)
+    "nonexistent"                               # Non-existent (does not exist in events)
+end
 
 function run_checks(directory1::String, directory2::String, outfile::String, n_linkage_runs::Int)
     msgs = String[]
@@ -205,36 +218,14 @@ function increment_value!(d, k, n)
     end
 end
 
-"Returns: Dict(recordID => CriteriaId if linked, -1 if not linked, ...). Nonexistent records have no recordID."
-function construct_recordid2criteriaid(fullpath::String)
-    result = Dict{UInt, String}()
-    pk_colnames = construct_primarykey_colnames(fullpath)
-    pk_values   = Union{String, Missing}[missing for i = 1:length(pk_colnames)]
-    for row in CSV.Rows(fullpath; reusebuffer=true, use_mmap=true)
-        recordid = construct_recordid(row, pk_colnames, pk_values)
-        haskey(result, recordid) && continue
-        CriteriaId = getproperty(row, :CriteriaId)
-        CriteriaId = ismissing(CriteriaId) ? "-1" : CriteriaId
-        result[recordid] = CriteriaId
+function construct_eventid2criteriaid(links_path::String, tablename::String)
+    result = Dict{String, String}()
+    for row in CSV.Rows(links_path; reusebuffer=true, mmap=true)
+        getproperty(row, :TableName) != tablename && continue
+        eventid = getproperty(row, :EventId)
+        result[eventid] = getproperty(row, :CriteriaId)
     end
     result
-end
-
-function construct_primarykey_colnames(fullpath::String)
-    csvrows = CSV.Rows(fullpath; reusebuffer=true)
-    result  = csvrows.names
-    splice!(result, findfirst(isequal(:EntityId),   result))
-    splice!(result, findfirst(isequal(:CriteriaId), result))
-    result
-end
-
-function construct_recordid(row, pk_colnames::Vector{Symbol}, pk_values::Vector{Union{String, Missing}})
-    j = 0
-    for colname in pk_colnames
-        j += 1
-        pk_values[j] = getproperty(row, colname)
-    end
-    hash(pk_values)
 end
 
 function earlyexit(msgs::Vector{String})
