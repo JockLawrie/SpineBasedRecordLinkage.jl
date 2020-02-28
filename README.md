@@ -72,6 +72,7 @@ description: Construct a spine from 3 health service usage tables and link the t
 output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "", schemafile: "schema/spine.yml"}
 append_to_spine: true
+construct_entityid_from: [firstname, lastname, birthdate]
 tables:
     hospital_admissions:     {datafile: "data/hospital_admissions.csv",     schemafile: "schema/hospital_admissions.yml"}
     emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
@@ -102,6 +103,7 @@ The configuration contains:
 - If constructing a spine from scratch, or appending rows to an existing spine (for example with updated data), set `append_to_spine` to true.
   If `append_to_spine` is true then records in the input tables that cannot link to an existing row in the spine are appended to the spine and linked.
   Otherwise these records are left unlinked.
+- If `append_to_spine` is true then `construct_entityid_from` is required. It is a list of columns from which to construct the `EntityId` column (the `EntityId` is a hash of these columns).
 - Specifications of the 3 tables:
   - The table names are arbitrary.
   - The locations of each table's data file and schema file are specified in the same way as those of the spine. 
@@ -186,14 +188,11 @@ The results of `run_linkage` are structured as follows:
 4. The `output` directory contains the information necessary to inspect the linkage results and construct linked content data.
    It contains the following files:
    - A `criteria.tsv` table, in which each row specifies a linkage criterion.
-   - A `spine.tsv` file, containing:
-     - An `EntityId` column, which uniquely identifies the entities specified in the spine.
-       Each EntityId is calculated as a hash of the spine's primary key that is specified in the schema used in the linkage configuration.
-     - The columns of the spine's primary key.
-   - Linked data tables. Each linked table contains:
-     - The table's primary key columns, which enable the construction of linked content data.
-     - An `EntityId` column which links the table to the spine.
-     - A `CriteriaId` column that links to the `criteria.tsv` file, so that we can see, for each link, which linkage criteria were satisfied.
+   - A `spine.tsv` file, containing the columns specified in the spine's schema.
+     The schema __must__ include `EntityId` as the primary key, with data type `UInt`.
+   - The input tables with an `EventId` column attached. For each row the `EventId` is constructed as a hash of the row's primary key.
+   - A `links.tsv` table, that links events to entities. The columns are `TableName`, `EventId`, `EntityId` and `CriteriaId`.
+     For each row the `CriteriaId` specifies which set of linkage criteria was satisfied to enable the link.
 
 ### Summarise the results
 
