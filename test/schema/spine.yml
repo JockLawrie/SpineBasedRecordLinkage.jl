@@ -1,7 +1,8 @@
 name: spine
 description: "Linkage spine. Each row specifies a person"
-primarykey: [firstname, lastname, birthdate]
+primarykey: EntityId
 columns:
+  - EntityId:    {description: Entity ID,   datatype: UInt,   iscategorical: false, isrequired: true, isunique: true, validvalues: UInt}
   - firstname:   {description: First name,  datatype: String, iscategorical: false, isrequired: true, isunique: false, validvalues: String}
   - middlename:  {description: Middle name, datatype: String, iscategorical: false, isrequired: true, isunique: false, validvalues: String}
   - lastname:    {description: Last name,   datatype: String, iscategorical: false, isrequired: true, isunique: false, validvalues: String}

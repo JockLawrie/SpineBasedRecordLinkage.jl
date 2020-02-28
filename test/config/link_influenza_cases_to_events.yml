@@ -1,7 +1,7 @@
 projectname: influenza-cases-link
 description: Link the emergencies, admissions and influenza tables to the spine that was constructed from the influenza cases table.
 output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
-spine: {datafile: "output/spine.tsv", schemafile: "schema/influenza_cases.yml"}
+spine: {datafile: "output/spine.tsv", schemafile: "schema/spine.yml"}
 append_to_spine: false
 tables:
     emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}

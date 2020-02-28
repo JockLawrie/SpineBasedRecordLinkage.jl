@@ -38,8 +38,10 @@ function run_linkage(configfile::String)
     # Init spine
     if isnothing(cfg.spine.datafile)
         @info "$(now()) Initialising spine"
-        colnames = vcat(:EntityId, cfg.spine.schema.columnorder)
-        coltypes = vcat(Union{Missing, UInt}, fill(Union{Missing, String}, length(colnames) - 1))
+        colnames = cfg.spine.schema.columnorder
+        idx      = findfirst(==(:EntityId), colnames)
+        isnothing(idx) && error("The spine has no EntityId column.")
+        coltypes = vcat(fill(Union{Missing, String}, idx - 1), UInt, fill(Union{Missing, String}, length(colnames) - idx))
         spine    = DataFrame(coltypes, colnames, 0)
     else
         @info "$(now()) Importing spine"
@@ -55,7 +57,7 @@ function run_linkage(configfile::String)
     links = DataFrame([String, UInt, UInt, Int], [:TableName, :EventId, :EntityId, :CriteriaId], 1_000_000)  # Initially filled with junk
 
     # Do the linkage for each events table
-    spine_primarykey = cfg.spine.schema.primarykey
+    construct_entityid_from = cfg.construct_entityid_from
     for tablecriteria in cfg.criteria
         # Create an empty output file for the events table and store it in the output directory
         tablename = tablecriteria[1].tablename
@@ -68,7 +70,7 @@ function run_linkage(configfile::String)
         # Run the data through each linkage iteration
         events_infile = cfg.tables[tablename].datafile
         nlinks = link_table_to_events!(links, nlinks, links_outfile,
-                                       spine, spine_primarykey, cfg.append_to_spine,
+                                       spine, construct_entityid_from, cfg.append_to_spine,
                                        events_infile, events_outfile, events_schema, tablecriteria)
     end
 
@@ -98,7 +100,7 @@ For each eventrow in the events table:
 2. Else if append_to_spine is true, append a row to the spine and link it to the eventrow.
 """
 function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::String,
-                               spine::DataFrame, spine_primarykey::Vector{Symbol}, append_to_spine::Bool,
+                               spine::DataFrame, construct_entityid_from::Vector{Symbol}, append_to_spine::Bool,
                                events_infile::String, events_outfile::String, events_schema::TableSchema, tablecriteria::Vector{LinkageCriteria})
     nlinks0    = nlinks  # Number of links due to other tables
     events     = init_events(events_schema, 1_000_000)  # Process the events in batches of 1_000_000 rows
@@ -106,7 +108,6 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
     nevents    = 0  # Number of this table's rows stored on disk
     i_links    = 0  # Number of this table's rows stored in the in-memory links table
     tablename  = String(events_schema.name)
-    spinecols  = Set(names(spine))
     n_criteria = length(tablecriteria)
     events_primarykey = events_schema.primarykey
     criteriaid2index  = construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
@@ -127,7 +128,7 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
 
         # If eventrow is unlinked, append it to the spine, update the TableIndexes and link
         if append_to_spine && n_hasmissing < n_criteria && !islinked
-            append_row_to_spine!(spine, spine_primarykey, eventrow, spinecols)  # Create a new spine record
+            append_row_to_spine!(eventrow, spine, construct_entityid_from)  # Create a new spine record
             for linkagecriteria in tablecriteria
                 tableindex = criteriaid2index[linkagecriteria.id]
                 update!(tableindex, spine, size(spine, 1))  # Update the tableindex
@@ -240,14 +241,16 @@ Modified: spine.
 
 Append the row to the spine and return the EntityId of the new row.
 """
-function append_row_to_spine!(spine, spine_primarykey, row, spinecols::Set{Symbol})
-    d = Dict{Symbol, Union{Missing, String}}()
-    for colname in spinecols
-        d[colname] = hasproperty(row, colname) ? getproperty(row, colname) : missing
-    end
-    push!(spine, d)
+function append_row_to_spine!(row, spine, construct_entityid_from::Vector{Symbol})
+    push!(spine, (EntityId=UInt(0),), cols=:subset)  # Append row containing a dummy EntityId and missing values for all other columns
     i = size(spine, 1)
-    spine[i, :EntityId] = hash(spine[i, spine_primarykey])
+    spinecols = names(spine)
+    for colname in spinecols
+        colname == :EntityId       && continue
+        !hasproperty(row, colname) && continue
+        spine[i, colname] = getproperty(row, colname)
+    end
+    spine[i, :EntityId] = hash(spine[i, construct_entityid_from])
 end
 
 ################################################################################

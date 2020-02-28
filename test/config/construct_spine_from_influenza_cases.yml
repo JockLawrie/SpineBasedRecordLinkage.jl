@@ -1,8 +1,9 @@
 projectname: influenza-cases-spine
 description: Construct a spine containing only people who have had influenza
 output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
-spine: {datafile: "", schemafile: "schema/influenza_cases.yml"}
+spine: {datafile: "", schemafile: "schema/spine.yml"}
 append_to_spine: true
+construct_entityid_from: [firstname, lastname, birthdate]
 tables:
     influenza_cases: {datafile: "data/influenza_cases.csv", schemafile: "schema/influenza_cases.yml"}
 criteria:

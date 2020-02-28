@@ -3,6 +3,7 @@ description: Construct a spine from 3 health service usage tables and link the t
 output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
 spine: {datafile: "", schemafile: "schema/spine.yml"}
 append_to_spine: true
+construct_entityid_from: [firstname, lastname, birthdate]
 tables:
     hospital_admissions:     {datafile: "data/hospital_admissions.csv",     schemafile: "schema/hospital_admissions.yml"}
     emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}

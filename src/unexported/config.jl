@@ -111,6 +111,7 @@ struct LinkageConfig
     output_directory::String
     spine::TableConfig
     append_to_spine::Bool
+    construct_entityid_from::Vector{Symbol}    # spine[i, :EntityId] = hash(spine[i, construct_entityid_from])
     tables::Dict{String, TableConfig}
     criteria::Vector{Vector{LinkageCriteria}}  # iterations[i] = [iterations for a table i]
 end
@@ -131,6 +132,7 @@ function LinkageConfig(d::Dict)
     spinedata   = d["spine"]["datafile"] == "" ? nothing : d["spine"]["datafile"]
     spine       = TableConfig(spinedata, d["spine"]["schemafile"])
     append_to_spine = d["append_to_spine"]
+    construct_entityid_from = append_to_spine ? Symbol.(d["construct_entityid_from"]) : Symbol[]
     tables      = Dict(tablename => TableConfig(tableconfig["datafile"], tableconfig["schemafile"]) for (tablename, tableconfig) in d["tables"])
 
     # Criteria: retains original order but grouped by tablename for computational convenience
@@ -146,7 +148,7 @@ function LinkageConfig(d::Dict)
         criterionid += 1
         push!(criteria[tablename2idx[tablename]], LinkageCriteria(criterionid, x))
     end
-    LinkageConfig(projectname, description, outdir, spine, append_to_spine, tables, criteria)
+    LinkageConfig(projectname, description, outdir, spine, append_to_spine, construct_entityid_from, tables, criteria)
 end
 
 end
