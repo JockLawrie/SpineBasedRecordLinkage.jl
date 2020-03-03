@@ -1,0 +1,15 @@
+projectname: influenza-cases-chains
+description: For each influenza case, construct a chain of events that the patient experienced between 7 days prior and 30 days after (inclusive)
+output_directory: "output"  # All output will be stored in output/chains-{projectname}-{timestamp}
+links_table: {datafile: "data/links.csv", schemafile: "schema/links.yml"}  # Table that contains columns EventId and EntityId
+event_tables:  # Tables that contain an EventId column
+    all_disease_cases:       {datafile: "data/all_disease_cases.csv",       schemafile: "schema/all_disease_cases.yml"}
+    hospital_admissions:     {datafile: "data/hospital_admissions.csv",     schemafile: "schema/hospital_admissions.yml"}
+    emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
+tags:  # For each events table, specify a column that defines tags. This enables us to easily understand the type of event.
+    all_disease_cases: diagnosis  # table_name: column_name
+    hospital_admissions: primary_diagnosis
+    emergency_presentations: primary_diagnosis
+criteria:  # Criteria for constructing event chains, see description above
+    - tag_of_interest: {tablename: all_disease_cases, column: diagnosis, value: influenza}
+    - time_window: "-7 to 30 days"  # Unit can be singular or plural
