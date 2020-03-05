@@ -6,7 +6,6 @@ using CSV
 using DataFrames
 using Dates
 using Logging
-using Schemata
 
 function construct_event_chains(configfile::String)
     @info "$(now()) Configuring event chain construction"
@@ -18,8 +17,6 @@ function construct_event_chains(configfile::String)
     mkdir(joinpath(d, "input"))
     mkdir(joinpath(d, "output"))
     cp(configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
-    software_versions = construct_software_versions_table()
-    CSV.write(joinpath(d, "input", "SoftwareVersions.csv"), software_versions; delim=',')  # Write software_versions to d/input
     outdir = cfg.output_directory
 
     @info "$(now()) Importing the links table"
@@ -38,15 +35,15 @@ function construct_event_chains(configfile::String)
     # Include events in chains if they satisfy inclusion criteria
     chainid2chainname = augment_chains!(links, entityid2chainid2dttm, oldchainid2newchainid, lowerbound, upperbound)
 
+    @info "$(now()) Exporting event chain definitions"
+    x = sort!([(ChainId=k, ChainName=v) for (k,v) in chainid2chainname], by=(x) -> x.ChainId)
+    CSV.write(joinpath(outdir, "output", "event_chain_definitions.tsv"), x)
+
     @info "$(now()) Exporting event chains"
     x = view(links, links[!, :ChainId] .> 0, [:ChainId, :EventId])
     CSV.write(joinpath(outdir, "output", "event_chains.tsv"), x)
 
-    # Format chain_definitions and write to disk
-    x = sort!([(ChainId=k, ChainName=v) for (k,v) in chainid2chainname], by=(x) -> x.ChainId)
-    CSV.write(joinpath(outdir, "output", "chain_definitions.tsv"), x)
-
-    @info "$(now()) Finished event chains. Results at:\n    $(outdir)"
+    @info "$(now()) Finished constructing event chains. Results are stored at:\n    $(outdir)"
     outdir
 end
 
@@ -135,11 +132,8 @@ function augment_chains!(links, entityid2chainid2dttm, oldchainid2newchainid, lo
         chainid == 0 && continue  # The event is not part of any chain
         chainid = haskey(oldchainid2newchainid, chainid) ? oldchainid2newchainid[chainid] : chainid
         links[i, :ChainId] = chainid
-        if haskey(result, chainid)
-            result[chainid] = "$(result[chainid]) -> $(links[i, :EventTag])"
-        else
-            result[chainid] = links[i, :EventTag]
-        end
+        event_tag = "$(links[i, :TableName]).$(links[i, :EventTag])"  # tablename.tag
+        result[chainid] = haskey(result, chainid) ? "$(result[chainid]) -> $(event_tag)" : event_tag
     end
     result
 end
