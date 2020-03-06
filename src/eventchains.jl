@@ -6,28 +6,28 @@ using CSV
 using DataFrames
 using Dates
 using Logging
+using YAML
 
 function construct_event_chains(configfile::String)
     @info "$(now()) Configuring event chain construction"
     cfg = ChainsConfig(configfile)
 
     @info "$(now()) Initialising output directory: $(cfg.output_directory)"
-    d = cfg.output_directory
-    mkdir(d)
-    mkdir(joinpath(d, "input"))
-    mkdir(joinpath(d, "output"))
-    cp(configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
     outdir = cfg.output_directory
+    mkdir(outdir)
+    mkdir(joinpath(outdir, "input"))
+    mkdir(joinpath(outdir, "output"))
+    cp(configfile, joinpath(outdir, "input", basename(configfile)))  # Copy config file to d/input
 
     @info "$(now()) Importing the links table"
     types = Dict(:TableName => String, :EntityId => UInt, :EventId => UInt, :CriteriaId => Int)
-    links = DataFrame(CSV.File(cgf.links_table; types=types))
+    links = DataFrame(CSV.File(cfg.links_table; types=types))
     select!(links, Not(:CriteriaId))  # Drop CriteriaId column
 
     @info "$(now()) Initialising the event_chains table"
     # Append columns: DateTime, EventTag, ChainId
-    lowerbound = cfg.criteria.time_window.lowerbound
-    upperbound = cfg.criteria.time_window.upperbound
+    lowerbound = cfg.time_window.lowerbound
+    upperbound = cfg.time_window.upperbound
     entityid2chainid2dttm = augment_links!(links, cfg)  # EntityId => ChainId => DateTime
     oldchainid2newchainid = merge_chains(entityid2chainid2dttm, lowerbound, upperbound)  # oldChainId => newChainId. Merge chains if they overlap.
 
@@ -48,10 +48,50 @@ function construct_event_chains(configfile::String)
 end
 
 ################################################################################
-# Unexported
+# Config
 
 struct ChainsConfig
+    projectname::String
+    description::String
+    output_directory::String
+    links_table::String                 # filename
+    event_tables::Dict{String, String}  # tablename => filename
+    tags::Dict{String, Symbol}          # tablename => colname
+    timestamps::Dict{String, Symbol}    # tablename => colname
+    tag_of_interest::Dict{String, String}  # keys: tablename, column, value
+    time_window::Dict{Symbol, Any}      # keys: unit, lowerbound, upperbound
 end
+
+function ChainsConfig(configfile::String)
+    !isfile(configfile) && error("The config file $(configfile) does not exist.")
+    d = YAML.load_file(configfile)
+    ChainsConfig(d)
+end
+
+const registered_units = Dict("day" => Day)
+
+function ChainsConfig(d::Dict)
+    projectname  = d["projectname"]
+    description  = d["description"]
+    dttm         = "$(round(now(), Second(1)))"
+    dttm         = replace(dttm, "-" => ".")
+    dttm         = replace(dttm, ":" => ".")
+    outdir       = joinpath(d["output_directory"], "eventchains-$(projectname)-$(dttm)")
+    links_table  = d["links_table"]
+    event_tables = d["event_tables"]
+    tags         = Dict{String, Symbol}(tablename => Symbol(tag) for (tablename,tag) in d["tags"])
+    timestamps   = Dict{String, Symbol}(tablename => Symbol(tag) for (tablename,tag) in d["timestamps"])
+    tag_of_interest = d["criteria"]["tag_of_interest"]
+    tw    = d["criteria"]["time_window"]  # Example: "-7 to 30 days"
+    tw    = split(tw, " ")
+    lb    = parse(Int, tw[1])
+    ub    = parse(Int, tw[3])
+    units = registered_units[tw[4][1:3]]
+    timewindow = Dict{Symbol, Any}(:unit => units, :lowerbound => units(lb), :upperbound => units(ub))
+    ChainsConfig(projectname, description, outdir, links_table, event_tables, tags, timestamps, tag_of_interest, timewindow)
+end
+
+################################################################################
 
 function augment_links!(links::DataFrame, cfg::ChainsConfig)
     result = Dict{UInt, Dict{Int, DateTime}}()  # EntityId => ChainId => DateTime
@@ -62,8 +102,8 @@ function augment_links!(links::DataFrame, cfg::ChainsConfig)
     chainid             = 0
     tablename           = ""
     eventid2dttm_tag    = ""  # EventId => (datetime, tag)
-    table_of_interest   = cfg.criteria.tag_of_interest.tablename
-    tag_of_interest     = cfg.criteria.tag_of_interest.value
+    table_of_interest   = cfg.tag_of_interest["tablename"]
+    tag_of_interest     = cfg.tag_of_interest["value"]
     for i = 1:n
         # Update table if necessary
         new_tablename = links[i, :TableName]
@@ -76,7 +116,7 @@ function augment_links!(links::DataFrame, cfg::ChainsConfig)
         dttm, tag = eventid2dttm_tag[links[i, :EventId]]
         links[i, :DateTime] = dttm
         links[i, :EventTag] = tag
-        if tablename = table_of_interest && tag == tag_of_interest
+        if tablename == table_of_interest && tag == tag_of_interest
             chainid += 1
             links[i, :ChainId] = chainid
         end
@@ -144,7 +184,7 @@ where ts is the timestamp of the event of interest in the chain.
 
 If no such chain exists the function returns 0.
 """
-function get_chainid(chainid2dttm::Dict{Int, DateTime}, dttm::DateTime, lowerbound, upperbound)
+function get_chainid(chainid2dttm::Dict{Int, DateTime}, dttm::DateTime, lowerbound::T, upperbound::T) where {T <: Period}
     for (chainid, ts) in chain2dttm
         dttm < ts - lowerbound && continue
         dttm > ts + upperbound && continue
