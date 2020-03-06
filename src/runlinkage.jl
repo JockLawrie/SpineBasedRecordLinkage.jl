@@ -104,6 +104,8 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
                                events_infile::String, events_outfile::String, events_schema::TableSchema, tablecriteria::Vector{LinkageCriteria})
     nlinks0    = nlinks  # Number of links due to other tables
     events     = init_events(events_schema, 1_000_000)  # Process the events in batches of 1_000_000 rows
+    eventids   = Set{UInt}()  # Enables avoidance of duplicated EventIds
+    buffer     = IOBuffer()   # For building EventIds
     i_events   = 0  # Number of this table's rows stored in-memory
     nevents    = 0  # Number of this table's rows stored on disk
     i_links    = 0  # Number of this table's rows stored in the in-memory links table
@@ -112,13 +114,31 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
     events_primarykey = events_schema.primarykey
     criteriaid2index  = construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
     criteriaid2key    = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
+    primarykey_is_incomplete = false
     for eventrow in CSV.Rows(events_infile; reusebuffer=true, use_mmap=true)
-        # Store events primary key and EventId
+        # Store event primary key and construct eventid at the same time
         i_events += 1
+        print(buffer, tablename)  # Include the tablename in the eventid
         for colname in events_primarykey
-            events[i_events, colname] = getproperty(eventrow, colname)
+            val = getproperty(eventrow, colname)
+            if ismissing(val)
+                primarykey_is_incomplete = true
+                break
+            end
+            print(buffer, val)
+            events[i_events, colname] = val
         end
-        eventid = hash(events[i_events, events_primarykey])
+        eventid = hash(String(take!(buffer)))
+
+        # Roll back if primary key is incomplete or if EventId is a duplicate
+        if primarykey_is_incomplete || in(eventid, eventids)
+            i_events -= 1  # Unstore the row
+            primarykey_is_incomplete = false
+            continue
+        end
+
+        # Store EventId
+        push!(eventids, eventid)
         events[i_events, :EventId] = eventid
 
         # Link the eventrow to the spine using the first LinkageCriteria that are satisfied (if any)

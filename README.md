@@ -14,9 +14,9 @@ Spine-based record linkage in Julia.
   In some contexts, such as healthcare, events are often known as episodes or encounters.
   In others, such as sales, events are transactions.
 
-- __Record linkage__ is, at its core, the problem of determining whether two records refer to the same entity.
+- __Record linkage__ is, at its core, the problem of determining whether two events refer to the same entity.
 
-- Spine-based record linkage links records one at a time to a __spine__ - a table in which each record specifies an entity.
+- Spine-based record linkage links events one at a time to a __spine__ - a table in which each record specifies an entity.
 
 ## Usage
 
@@ -187,12 +187,17 @@ The results of `run_linkage` are structured as follows:
    Ditto for the spine if it exists prior to the linkage run.
 4. The `output` directory contains the information necessary to inspect the linkage results and construct linked content data.
    It contains the following files:
-   - A `criteria.tsv` table, in which each row specifies a linkage criterion.
    - A `spine.tsv` file, containing the columns specified in the spine's schema.
      The schema __must__ include `EntityId` as the primary key, with data type `UInt`.
-   - The input tables with an `EventId` column attached. For each row the `EventId` is constructed as a hash of the row's primary key.
-   - A `links.tsv` table, that links events to entities. The columns are `TableName`, `EventId`, `EntityId` and `CriteriaId`.
-     For each row the `CriteriaId` specifies which set of linkage criteria was satisfied to enable the link.
+   - A `links.tsv` table, that links events to entities.
+       - The columns are `TableName`, `EventId`, `EntityId` and `CriteriaId`.
+       - The _links_ table joins to the spine on `EntityId` in a many-to-one relationship.
+       - For each row the `CriteriaId` specifies which set of linkage criteria was satisfied to enable the link.
+   - A `criteria.tsv` table, in which each row specifies a linkage criterion. It joins to the _links_ table on `CriteriaId` in a one-to-many relationship.
+   - The input tables with an `EventId` column appended.
+       - For each row the `EventId` is constructed as a hash of the table's name concatenated with the row's primary key.
+       - These tables join to the _links_ table on `EventId` in a one-to-one relatinship.
+   
 
 ### Summarise the results
 
