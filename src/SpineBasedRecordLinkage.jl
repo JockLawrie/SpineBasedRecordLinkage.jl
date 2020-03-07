@@ -14,7 +14,4 @@ using .config
 using .runlinkage
 using .reporting
 
-include("eventchains.jl")
-using .eventchains
-
 end
