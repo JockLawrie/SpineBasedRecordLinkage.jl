@@ -283,9 +283,7 @@ end
 
 function get_package_version()
     pkg_version = "unknown"
-    srcdir = @__DIR__
-    r      = findfirst("SpineBasedRecordLinkage.jl", srcdir)  # i:j
-    pkgdir = srcdir[1:r[end]]
+    pkgdir = dirname(@__DIR__)
     f = open(joinpath(pkgdir, "Project.toml"))
     i = 0
     for line in eachline(f)
