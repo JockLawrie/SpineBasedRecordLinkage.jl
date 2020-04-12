@@ -4,6 +4,10 @@
 
 println("\nTEST SET 1")
 
+println("Write LinkageConfig")
+lc1 = SpineBasedRecordLinkage.config.LinkageConfig(joinpath("config", "construct_spine_from_influenza_cases.yml"))
+SpineBasedRecordLinkage.config.write_config(joinpath("output", "test_linkage_config.yaml"), lc1)
+
 println("Construct spine from influenza cases")
 outdir1a = run_linkage(joinpath("config", "construct_spine_from_influenza_cases.yml"))
 spine    = DataFrame(CSV.File(joinpath(outdir1a, "output", "spine.tsv"); delim='\t'))

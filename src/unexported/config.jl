@@ -1,6 +1,6 @@
 module config
 
-export ApproxMatch, LinkageCriteria, LinkageConfig
+export ApproxMatch, LinkageCriteria, LinkageConfig, write_config
 
 using Dates
 using Schemata
@@ -32,6 +32,11 @@ function TableConfig(datafile, schemafile)
     d      = YAML.load_file(schemafile)
     schema = TableSchema(d)
     TableConfig(datafile, schemafile, schema)
+end
+
+function dictify(tc::TableConfig)
+    datafile = isnothing(tc.datafile) ? "" : tc.datafile
+    Dict("datafile" => datafile, "schemafile" => tc.schemafile)
 end
 
 ################################################################################
@@ -72,6 +77,11 @@ function ApproxMatch(d::Dict)
     ApproxMatch(datacolname, spinecolname, distancemetric, threshold)
 end
 
+function dictify(am::ApproxMatch)
+    Dict("datacolumn" => string(am.datacolumn), "spinecolumn" => string(am.spinecolumn),
+         "distancemetric" => string(am.distancemetric), "threshold" => string(am.threshold))
+end
+
 ################################################################################
 
 """
@@ -91,6 +101,15 @@ function LinkageCriteria(id::Int, d::Dict)
     exactmatch  = Dict(Symbol(k) => Symbol(v) for (k, v) in d["exactmatch"])
     approxmatch = haskey(d, "approxmatch") ? [ApproxMatch(amspec) for amspec in d["approxmatch"]] : ApproxMatch[]
     LinkageCriteria(id, tablename, exactmatch, approxmatch)
+end
+
+function dictify(lc::LinkageCriteria)
+    result = Dict{String, Any}()
+    result["id"] = string(lc.id)
+    result["tablename"]   = lc.tablename
+    result["exactmatch"]  = Dict(String(k) => String(v) for (k, v) in lc.exactmatch)
+    result["approxmatch"] = [dictify(x) for x in lc.approxmatch]
+    result
 end
 
 ################################################################################
@@ -150,5 +169,28 @@ function LinkageConfig(d::Dict)
     end
     LinkageConfig(projectname, description, outdir, spine, append_to_spine, construct_entityid_from, tables, criteria)
 end
+
+function dictify(cfg::LinkageConfig)
+    result = Dict{String, Any}()
+    result["projectname"] = cfg.projectname
+    result["description"] = cfg.description
+    od  = cfg.output_directory
+    idx = findfirst("linkage-$(cfg.projectname)", od)[1]
+    od  = rstrip(od[1:(idx-1)], ['/', '\\'])
+    result["output_directory"] = od
+    result["spine"] = dictify(cfg.spine)
+    result["append_to_spine"] = string(cfg.append_to_spine)
+    result["construct_entityid_from"] = String.(cfg.construct_entityid_from)
+    result["tables"]   = Dict(k => dictify(v) for (k, v) in cfg.tables)
+    result["criteria"] = Dict[]
+    for v in cfg.criteria
+        for lc in v
+            push!(result["criteria"], dictify(lc))
+        end
+    end
+    result
+end
+
+write_config(outfile, cfg) = YAML.write_file(outfile, dictify(cfg))
 
 end

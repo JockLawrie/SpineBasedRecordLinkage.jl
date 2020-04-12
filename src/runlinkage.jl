@@ -23,13 +23,20 @@ using ..config
 function run_linkage(configfile::String)
     @info "$(now()) Configuring linkage"
     cfg = LinkageConfig(configfile)
+    run_linkage(cfg, configfile)
+end
 
+function run_linkage(cfg::LinkageConfig, configfile::String="")
     @info "$(now()) Initialising output directory: $(cfg.output_directory)"
     d = cfg.output_directory
     mkdir(d)
     mkdir(joinpath(d, "input"))
     mkdir(joinpath(d, "output"))
-    cp(configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
+    if isempty(configfile)
+        write_config(joinpath(d, "input", "config.yaml"), cfg)  # Write cfg to config.yaml
+    else
+        cp(configfile, joinpath(d, "input", basename(configfile)))  # Copy config file to d/input
+    end
     software_versions = construct_software_versions_table()
     CSV.write(joinpath(d, "input", "SoftwareVersions.csv"), software_versions; delim=',')  # Write software_versions to d/input
     criteria = construct_criteria_table(cfg)
