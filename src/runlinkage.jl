@@ -52,7 +52,7 @@ function run_linkage(cfg::LinkageConfig, configfile::String="")
         spine    = DataFrame(coltypes, colnames, 0)
     else
         @info "$(now()) Importing spine"
-        spine = DataFrame(CSV.File(cfg.spine.datafile; type=String))  # For performance only Strings are compared (avoids parsing values)
+        spine = DataFrame(CSV.File(cfg.spine.datafile; type=Union{Missing, String}))  # For performance only Strings are compared (avoids parsing values)
         spine[!, :EntityId] = [parse(UInt, x) for x in spine[!, :EntityId]]
     end
 
@@ -121,10 +121,10 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
     events_primarykey = events_schema.primarykey
     criteriaid2index  = construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
     criteriaid2key    = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
-    primarykey_is_incomplete = false
     for eventrow in CSV.Rows(events_infile; reusebuffer=true, use_mmap=true)
         # Store event primary key and construct eventid at the same time
         i_events += 1
+        primarykey_is_incomplete = false
         print(buffer, tablename)  # Include the tablename in the eventid
         for colname in events_primarykey
             val = getproperty(eventrow, colname)
@@ -137,10 +137,18 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
         end
         eventid = hash(String(take!(buffer)))
 
-        # Roll back if primary key is incomplete or if EventId is a duplicate
-        if primarykey_is_incomplete || in(eventid, eventids)
+        # Check whether an EntityId can be constructed (requires non-missing values for columns in construct_entityid_from)
+        cannot_construct_entityid = false
+        if append_to_spine
+            for colname in construct_entityid_from
+                cannot_construct_entityid = ismissing(getproperty(eventrow, colname))
+                cannot_construct_entityid && break
+            end
+        end
+
+        # Roll back if primary key is incomplete, cannot construct EntityId or if EventId is a duplicate
+        if primarykey_is_incomplete || (append_to_spine && cannot_construct_entityid) || in(eventid, eventids)
             i_events -= 1  # Unstore the row
-            primarykey_is_incomplete = false
             continue
         end
 
