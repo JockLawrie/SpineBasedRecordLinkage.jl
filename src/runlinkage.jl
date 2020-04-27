@@ -147,7 +147,7 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
         end
 
         # Roll back if primary key is incomplete, cannot construct EntityId or if EventId is a duplicate
-        if primarykey_is_incomplete || (append_to_spine && cannot_construct_entityid) || in(eventid, eventids)
+        if primarykey_is_incomplete || cannot_construct_entityid || in(eventid, eventids)
             i_events -= 1  # Unstore the row
             continue
         end
