@@ -26,9 +26,9 @@ function table_to_set_of_dicts(datafile::String)
 end
 
 function cleanup()
-    contents = readdir(outdir)
+    contents = readdir(outdir; join=true)
     for x in contents
-        rm(joinpath(outdir, x); recursive=true)
+        rm(x; recursive=true)
     end
 end
 

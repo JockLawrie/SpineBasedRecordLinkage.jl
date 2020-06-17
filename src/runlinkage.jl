@@ -71,7 +71,7 @@ function run_linkage(cfg::LinkageConfig, configfile::String="")
         @info "$(now()) Starting linkage for table $(tablename)"
         events_schema  = cfg.tables[tablename].schema
         events         = init_events(events_schema, 0)  # Columns are [:EventId, primarykey_columns...]
-        events_outfile = joinpath(cfg.output_directory, "output", "$(tablename)_with_eventid.tsv")
+        events_outfile = joinpath(cfg.output_directory, "output", "$(tablename)_primarykey_and_eventid.tsv")
         CSV.write(events_outfile, events; delim='\t')
 
         # Run the data through each linkage iteration
