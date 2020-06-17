@@ -17,7 +17,7 @@ end
 function table_to_set_of_dicts(datafile::String)
     result   = Set{Dict{Symbol, Any}}()
     data     = DataFrame(CSV.File(datafile))
-    colnames = names(data)
+    colnames = Symbol.(names(data))
     for row in eachrow(data)
         d = Dict{Symbol, Any}(colname => getproperty(row, colname) for colname in colnames)
         push!(result, d)

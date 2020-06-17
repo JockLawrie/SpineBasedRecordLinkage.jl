@@ -267,7 +267,7 @@ function write_to_linkage_comparison(d::Dict, outfile::String, dlm::Char, apnd::
     for (k, v) in d
         push!(result, (tablename=k[1], status1=k[2], status2=k[3], nrecords=v))
     end
-    sort!(result, (:tablename, :status1, :status2))
+    sort!(result, [:tablename, :status1, :status2])
     CSV.write(outfile, result; delim=dlm, append=apnd)
 end
 
@@ -276,7 +276,7 @@ function write_to_linkage_report(d::Dict, outfile::String, dlm::Char, apnd::Bool
     for (k, v) in d
         push!(result, (tablename=k[1], status1=k[2], nrecords=v))
     end
-    sort!(result, (:tablename, :status1))
+    sort!(result, [:tablename, :status1])
     CSV.write(outfile, result; delim=dlm, append=apnd)
 end
 

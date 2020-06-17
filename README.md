@@ -194,10 +194,10 @@ The results of `run_linkage` are structured as follows:
        - The _links_ table joins to the spine on `EntityId` in a many-to-one relationship.
        - For each row the `CriteriaId` specifies which set of linkage criteria was satisfied to enable the link.
    - A `criteria.tsv` table, in which each row specifies a linkage criterion. It joins to the _links_ table on `CriteriaId` in a one-to-many relationship.
-   - The input tables with an `EventId` column appended.
+   - For each input table there is a file containing the table's primary key and a new `EventId` column.
        - For each row the `EventId` is constructed as a hash of the table's name concatenated with the row's primary key.
        - These tables join to the _links_ table on `EventId` in a one-to-one relatinship.
-   
+       - Each of these tables also joins to the corresponding table containing de-identified data via the primary key. In this way de-identified data needn't be updated every time a linkage run is performed. Put another way, the output of a linkage run joins to the de-identified data and by doing so links events to entities. Note that this only requires the _links_ and _primary key to eventid_ tables - __the identifiable information in the spine needn't be exposed to those analysing the de-identified data__.
 
 ### Summarise the results
 

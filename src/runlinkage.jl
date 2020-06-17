@@ -280,7 +280,8 @@ function append_row_to_spine!(row, spine, construct_entityid_from::Vector{Symbol
     push!(spine, (EntityId=UInt(0),), cols=:subset)  # Append row containing a dummy EntityId and missing values for all other columns
     i = size(spine, 1)
     spinecols = names(spine)
-    for colname in spinecols
+    for colname_str in spinecols
+        colname = Symbol(colname_str)
         colname == :EntityId       && continue
         !hasproperty(row, colname) && continue
         spine[i, colname] = getproperty(row, colname)
