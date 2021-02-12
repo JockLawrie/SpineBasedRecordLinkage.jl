@@ -5,18 +5,18 @@
 println("\nTEST SET 1")
 
 println("Write LinkageConfig")
-lc1 = SpineBasedRecordLinkage.config.LinkageConfig(joinpath("config", "construct_spine_from_influenza_cases.yml"))
-SpineBasedRecordLinkage.config.write_config(joinpath("output", "test_linkage_config.yaml"), lc1)
+lc1 = SpineBasedRecordLinkage.config.LinkageConfig(joinpath("config", "construct_spine_from_influenza_cases.toml"))
+SpineBasedRecordLinkage.config.write_config(joinpath("output", "test_linkage_config.toml"), lc1)
 
 println("Construct spine from influenza cases")
-outdir1a = run_linkage(joinpath("config", "construct_spine_from_influenza_cases.yml"))
+outdir1a = run_linkage(joinpath("config", "construct_spine_from_influenza_cases.toml"))
 spine    = DataFrame(CSV.File(joinpath(outdir1a, "output", "spine.tsv"); delim='\t'))
 
 @test size(spine, 1) == 4
 
 println("Link influenza cases to events")
 cp(joinpath(outdir1a, "output", "spine.tsv"), joinpath(outdir, "spine.tsv"); force=true)
-outdir1b = run_linkage(joinpath("config", "link_influenza_cases_to_events.yml"))
+outdir1b = run_linkage(joinpath("config", "link_influenza_cases_to_events.toml"))
 
 println("Reporting")
 outfile = joinpath(outdir, "linkage_report.csv")

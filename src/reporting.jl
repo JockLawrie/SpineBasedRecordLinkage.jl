@@ -220,7 +220,7 @@ end
 
 function construct_eventid2criteriaid(links_path::String, tablename::String)
     result = Dict{String, String}()
-    for row in CSV.Rows(links_path; reusebuffer=true, mmap=true)
+    for row in CSV.Rows(links_path; reusebuffer=true)
         getproperty(row, :TableName) != tablename && continue
         eventid = getproperty(row, :EventId)
         result[eventid] = getproperty(row, :CriteriaId)
@@ -263,7 +263,7 @@ function append_to_result(d::Dict, outfile::String, dlm::Char, n_linkage_runs::I
 end
 
 function write_to_linkage_comparison(d::Dict, outfile::String, dlm::Char, apnd::Bool)
-    result = DataFrame([String, String, String, Union{Int, Missing}], [:tablename, :status1, :status2, :nrecords], 0)
+    result = DataFrame(tablename=String[], status1=String[], status2=String[], nrecords=Union{Int, Missing}[])
     for (k, v) in d
         push!(result, (tablename=k[1], status1=k[2], status2=k[3], nrecords=v))
     end
@@ -272,7 +272,7 @@ function write_to_linkage_comparison(d::Dict, outfile::String, dlm::Char, apnd::
 end
 
 function write_to_linkage_report(d::Dict, outfile::String, dlm::Char, apnd::Bool)
-    result = DataFrame([String, String, Union{Int, Missing}], [:tablename, :status1, :nrecords], 0)
+    result = DataFrame(tablename=String[], status1=String[], nrecords=Union{Int, Missing}[])
     for (k, v) in d
         push!(result, (tablename=k[1], status1=k[2], nrecords=v))
     end

@@ -4,7 +4,7 @@ export ApproxMatch, LinkageCriteria, LinkageConfig, write_config
 
 using Dates
 using Schemata
-using YAML
+using TOML
 
 using ..distances
 
@@ -29,9 +29,8 @@ struct TableConfig
 end
 
 function TableConfig(datafile, schemafile)
-    d      = YAML.load_file(schemafile)
-    schema = TableSchema(d)
-    TableConfig(datafile, schemafile, schema)
+    tableschema = readschema(schemafile)
+    TableConfig(datafile, schemafile, tableschema)
 end
 
 function dictify(tc::TableConfig)
@@ -137,7 +136,7 @@ end
 
 function LinkageConfig(configfile::String)
     !isfile(configfile) && error("The config file $(configfile) does not exist.")
-    d = YAML.load_file(configfile)
+    d = TOML.parsefile(configfile)
     LinkageConfig(d)
 end
 
@@ -152,7 +151,7 @@ function LinkageConfig(d::Dict)
     spine       = TableConfig(spinedata, d["spine"]["schemafile"])
     append_to_spine = d["append_to_spine"]
     construct_entityid_from = append_to_spine ? Symbol.(d["construct_entityid_from"]) : Symbol[]
-    tables      = Dict(tablename => TableConfig(tableconfig["datafile"], tableconfig["schemafile"]) for (tablename, tableconfig) in d["tables"])
+    tables      = Dict(tableconfig["tablename"] => TableConfig(tableconfig["datafile"], tableconfig["schemafile"]) for tableconfig in d["tables"])
 
     # Criteria: retains original order but grouped by tablename for computational convenience
     criteria      = Vector{LinkageCriteria}[]
@@ -191,6 +190,12 @@ function dictify(cfg::LinkageConfig)
     result
 end
 
-write_config(outfile, cfg) = YAML.write_file(outfile, dictify(cfg))
+write_config(outfile, cfg) = toml_to_file(outfile, dictify(cfg))
+
+function toml_to_file(outfile::String, d)
+    io = open(outfile, "w")
+    TOML.print(io, d)
+    close(io)
+end
 
 end

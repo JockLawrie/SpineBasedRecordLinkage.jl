@@ -5,7 +5,7 @@
 println("\nTEST SET 2")
 
 println("Link all health service events")
-outdir2 = run_linkage(joinpath("config", "link_all_health_service_events.yml"))
+outdir2 = run_linkage(joinpath("config", "link_all_health_service_events.toml"))
 
 println("Reporting")
 outfile = joinpath(outdir, "linkage_report.csv")

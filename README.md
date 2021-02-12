@@ -24,7 +24,7 @@ This package provides 3 functions:
 
 1. `run_linkage` is used to construct a spine from one or more tables and link the tables to the spine.
    Alternatively, an existing spine can be passed and `run_linkage` will only perform the linkage step.
-   __A linkage is configured in a YAML file and can run as a script, so that users needn't write any Julia code.__
+   __A linkage is configured in a TOML file and can run as a script, so that users needn't write any Julia code.__
 
 2. `summarise_linkage_run` provides a summary report of the results of a linkage run as a CSV file.
 
@@ -64,31 +64,54 @@ Our goal is to link these tables so that we can ask question such as:
 
 ### Configuration
 
-Consider the following linkage configuration file, `link_all_health_service_events.yml`, which is in the `test/config` directory.
+Consider the following linkage configuration file, `link_all_health_service_events.toml`, which is in the `test/config` directory.
 
-```yaml
-projectname: health-service-usage
-description: Construct a spine from 3 health service usage tables and link the tables to the spine.
-output_directory: "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
-spine: {datafile: "", schemafile: "schema/spine.yml"}
-append_to_spine: true
-construct_entityid_from: [firstname, lastname, birthdate]
-tables:
-    hospital_admissions:     {datafile: "data/hospital_admissions.csv",     schemafile: "schema/hospital_admissions.yml"}
-    emergency_presentations: {datafile: "data/emergency_presentations.csv", schemafile: "schema/emergency_presentations.yml"}
-    influenza_cases:         {datafile: "data/influenza_cases.csv",         schemafile: "schema/influenza_cases.yml"}
-criteria:
-    - {tablename: hospital_admissions,     exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
-    - {tablename: emergency_presentations, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
-    - {tablename: emergency_presentations, exactmatch: {birthdate: birthdate},
-                                           approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.3},
-                                                         {datacolumn: lastname,  spinecolumn: lastname,  distancemetric: levenshtein, threshold: 0.3}]}
-    - {tablename: influenza_cases, exactmatch: {firstname: firstname, middlename: middlename, lastname: lastname, birthdate: birthdate}}
-    - {tablename: influenza_cases, exactmatch: {firstname: firstname, lastname: lastname, birthdate: birthdate}}
-    - {tablename: influenza_cases, exactmatch: {firstname: firstname, birthdate: birthdate},
-                                                approxmatch: [{datacolumn: lastname, spinecolumn: lastname, distancemetric: levenshtein, threshold: 0.3}]}
-    - {tablename: influenza_cases, exactmatch: {lastname: lastname, birthdate: birthdate},
-                                                approxmatch: [{datacolumn: firstname, spinecolumn: firstname, distancemetric: levenshtein, threshold: 0.5}]}
+```toml
+projectname = "health-service-usage"
+description = "Construct a spine from 3 health service usage tables and link the tables to the spine."
+output_directory = "output"  # During testing this expands to: /path/to/SpineBasedRecordLinkage.jl/test/output/
+spine = {datafile = "", schemafile = "schema/spine.toml"}
+append_to_spine = true
+construct_entityid_from = ["firstname", "lastname", "birthdate"]
+tables = [
+    {tablename = "hospital_admissions",     datafile = "data/hospital_admissions.csv",     schemafile = "schema/hospital_admissions.toml"},
+    {tablename = "emergency_presentations", datafile = "data/emergency_presentations.csv", schemafile = "schema/emergency_presentations.toml"},
+    {tablename = "influenza_cases",         datafile = "data/influenza_cases.csv",         schemafile = "schema/influenza_cases.toml"}
+]
+
+[[criteria]]
+tablename  = "hospital_admissions"
+exactmatch = {firstname = "firstname", lastname = "lastname", birthdate = "birthdate"}
+
+[[criteria]]
+tablename  = "emergency_presentations"
+exactmatch = {firstname = "firstname", lastname = "lastname", birthdate = "birthdate"}
+
+[[criteria]]
+tablename   = "emergency_presentations"
+exactmatch  = {birthdate = "birthdate"}
+approxmatch = [
+        {datacolumn = "firstname", spinecolumn = "firstname", distancemetric = "levenshtein", threshold = 0.3},
+        {datacolumn = "lastname",  spinecolumn = "lastname",  distancemetric = "levenshtein", threshold = 0.3}
+]
+
+[[criteria]]
+tablename  = "influenza_cases"
+exactmatch = {firstname = "firstname", middlename = "middlename", lastname = "lastname", birthdate = "birthdate"}
+
+[[criteria]]
+tablename  = "influenza_cases"
+exactmatch = {firstname = "firstname", lastname = "lastname", birthdate = "birthdate"}
+
+[[criteria]]
+tablename   = "influenza_cases"
+exactmatch  = {firstname = "firstname", birthdate = "birthdate"}
+approxmatch = [{datacolumn = "lastname", spinecolumn = "lastname", distancemetric = "levenshtein", threshold = 0.3}]
+
+[[criteria]]
+tablename   = "influenza_cases"
+exactmatch  = {lastname = "lastname", birthdate = "birthdate"}
+approxmatch = [{datacolumn = "firstname", spinecolumn = "firstname", distancemetric = "levenshtein", threshold = 0.5}]
 ```
 
 The configuration contains:
@@ -96,7 +119,7 @@ The configuration contains:
 - A `projectname`, which enables linkage output to be easily identified.
 - A linkage `description`, which should describe the purpose of the linkage.
 - The output of a linkage run will be contained in a directory with the form `{output_directory}/linkage-{projectname}-{timestamp}`
-- A schema of the spine specified in `/path/to/spine_schema.yaml`.
+- A schema of the spine specified in `/path/to/spine_schema.toml`.
   This file specifies the columns, data types etc of the spine.
   See the `test/schema` directory as well as [Schemata.jl](https://github.com/JockLawrie/Schemata.jl) for examples of how to write a schema.
 - A file path that contains the spine's pre-existing data. If the spine does not already exist, set the spine's `datafile` value to `""`.

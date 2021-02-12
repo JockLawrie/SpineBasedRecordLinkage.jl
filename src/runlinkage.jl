@@ -46,10 +46,11 @@ function run_linkage(cfg::LinkageConfig, configfile::String="")
     if isnothing(cfg.spine.datafile)
         @info "$(now()) Initialising spine"
         colnames = cfg.spine.schema.columnorder
-        idx      = findfirst(==(:EntityId), colnames)
-        isnothing(idx) && error("The spine has no EntityId column.")
-        coltypes = vcat(fill(Union{Missing, String}, idx - 1), UInt, fill(Union{Missing, String}, length(colnames) - idx))
-        spine    = DataFrame(coltypes, colnames, 0)
+        isnothing(findfirst(==(:EntityId), colnames)) && error("The spine has no EntityId column.")
+        spine = DataFrame()
+        for colname in colnames
+            spine[!, colname] = colname == :EntityId ? UInt[] : Union{Missing, String}[]
+        end
     else
         @info "$(now()) Importing spine"
         spine = DataFrame(CSV.File(cfg.spine.datafile; type=Union{Missing, String}))  # For performance only Strings are compared (avoids parsing values)
@@ -57,11 +58,12 @@ function run_linkage(cfg::LinkageConfig, configfile::String="")
     end
 
     # Init Links table
-    links         = DataFrame([String, UInt, UInt, Int], [:TableName, :EventId, :EntityId, :CriteriaId], 0)
+    links         = DataFrame(TableName=String[], EventId=UInt[], EntityId=UInt[], CriteriaId=Int[])
     nlinks        = 0  # Number of rows in the links table stored on disk
     links_outfile = joinpath(cfg.output_directory, "output", "links.tsv")
     CSV.write(links_outfile, links; delim='\t')
-    links = DataFrame([String, UInt, UInt, Int], [:TableName, :EventId, :EntityId, :CriteriaId], 1_000_000)  # Initially filled with junk
+    n     = 1_000_000
+    links = DataFrame(TableName=Vector{String}(undef, n), EventId=Vector{UInt}(undef, n), EntityId=Vector{UInt}(undef, n), CriteriaId=Vector{Int}(undef, n))
 
     # Do the linkage for each events table
     construct_entityid_from = cfg.construct_entityid_from
@@ -94,9 +96,11 @@ end
 
 "Returns a DataFrame with n rows and columns [:EventId, events_schema.primarykey...]."
 function init_events(events_schema::TableSchema, n::Int)
-    colnames = vcat(:EventId, events_schema.primarykey)
-    coltypes = vcat(Union{Missing, UInt}, fill(Union{Missing, String}, length(events_schema.primarykey)))
-    DataFrame(coltypes, colnames, n)
+    result = DataFrame(EventId = Vector{Union{Missing, UInt}}(undef, n))
+    for colname in events_schema.primarykey
+        result[!, colname] = Vector{Union{Missing, String}}(undef, n)
+    end
+    result
 end
 
 """
@@ -121,7 +125,7 @@ function link_table_to_events!(links::DataFrame, nlinks::Int, links_outfile::Str
     events_primarykey = events_schema.primarykey
     criteriaid2index  = construct_table_indexes(tablecriteria, spine)  # criteria.id => TableIndex(spine, colnames, index)
     criteriaid2key    = Dict(id => fill("", length(tableindex.colnames)) for (id, tableindex) in criteriaid2index)  # Place-holder for lookup keys
-    for eventrow in CSV.Rows(events_infile; reusebuffer=true, use_mmap=true)
+    for eventrow in CSV.Rows(events_infile; reusebuffer=true)
         # Store event primary key and construct eventid at the same time
         i_events += 1
         primarykey_is_incomplete = false
