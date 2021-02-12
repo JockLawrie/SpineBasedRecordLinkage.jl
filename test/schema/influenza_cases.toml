@@ -1,0 +1,12 @@
+name = "influenza_cases"
+description = "Each row specifies report of a case of influenza"
+primarykey = "reportid"
+columns = [
+    {name = "reportid",   description = "Report ID", datatype = "Int", iscategorical = false, isrequired = true, isunique = true, validvalues = "Int"},
+    {name = "reportdate", description = "Date of case notification", datatype = "Date", iscategorical = false, isrequired = true, isunique = false, validvalues = "Date"},
+    {name = "firstname",  description = "First name",  datatype = "String", iscategorical = false, isrequired = false, isunique = false, validvalues = "String"},
+    {name = "middlename", description = "Middle name", datatype = "String", iscategorical = false, isrequired = false, isunique = false, validvalues = "String"},
+    {name = "lastname",   description = "Last name",   datatype = "String", iscategorical = false, isrequired = false, isunique = false, validvalues = "String"},
+    {name = "birthdate",  description = "Birth date",  datatype = "Date",   iscategorical = false, isrequired = false, isunique = false, validvalues = "Date"},
+    {name = "patient_postcode", description = "Postcode of the patient's residential address", datatype = "Int", iscategorical = false, isrequired = true, isunique = false, validvalues = "3000:3999"}
+]

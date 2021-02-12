@@ -1,0 +1,13 @@
+name        = "emergency_presentations"
+description = "Each row specifies a presentation at a hospital emergency department"
+primarykey  = ["hospitalid", "campusid", "presentationdate", "patientid"]
+columns = [
+    {name = "hospitalid",  description = "Hospital ID", datatype = "Int",    iscategorical = false, isrequired = true, isunique = false, validvalues = "1:9999"},
+    {name = "campusid",    description = "Campus ID",   datatype = "Int",    iscategorical = false, isrequired = true, isunique = false, validvalues = "1:9999"},
+    {name = "patientid",   description = "Patient ID",  datatype = "Int",    iscategorical = false, isrequired = true, isunique = false, validvalues = "Int"},
+    {name = "presentationdate", description = "Presentation date",  datatype = "Date", iscategorical = false, isrequired = true, isunique = false, validvalues = "Date"},
+    {name = "firstname",   description = "First name",  datatype = "String", iscategorical = false, isrequired = false, isunique = false, validvalues = "String"},
+    {name = "middlename",  description = "Middle name", datatype = "String", iscategorical = false, isrequired = false, isunique = false, validvalues = "String"},
+    {name = "lastname",    description = "Last name",   datatype = "String", iscategorical = false, isrequired = false, isunique = false, validvalues = "String"},
+    {name = "birthdate",   description = "Birth date",  datatype = "Date",   iscategorical = false, isrequired = false, isunique = false, validvalues = "Date"}
+]
