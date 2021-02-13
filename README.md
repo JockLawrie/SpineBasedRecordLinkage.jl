@@ -180,13 +180,13 @@ __Notes on exact matches__
 Once your schemata and linkage configuration are set up, you can run the following script from the command line on Linux or Mac:
 
 ```bash
-$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/link_all_health_service_events.yml
+$ julia /path/to/SpineBasedRecordLinkage.jl/scripts/run_linkage.jl /path/to/link_all_health_service_events.toml
 ```
 
 If you're on Windows you can run this from PowerShell:
 
 ```bash
-PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\link_all_health_service_events.yml
+PS julia path\to\SpineBasedRecordLinkage.jl\scripts\run_linkage.jl path\to\link_all_health_service_events.toml
 ```
 
 Alternatively you can run the following code from the Julia REPL:
@@ -194,7 +194,7 @@ Alternatively you can run the following code from the Julia REPL:
 ```julia
 using SpineBasedRecordLinkage
 
-run_linkage("/path/to/link_all_health_service_events.yml")
+run_linkage("/path/to/link_all_health_service_events.toml")
 ```
 
 ### Inspect the results
