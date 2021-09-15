@@ -53,7 +53,7 @@ function run_linkage(cfg::LinkageConfig, configfile::String="")
         end
     else
         @info "$(now()) Importing spine"
-        spine = DataFrame(CSV.File(cfg.spine.datafile; type=Union{Missing, String}))  # For performance only Strings are compared (avoids parsing values)
+        spine = DataFrame(CSV.File(cfg.spine.datafile; types=Union{Missing, String}))  # For performance only Strings are compared (avoids parsing values)
         spine[!, :EntityId] = [parse(UInt, x) for x in spine[!, :EntityId]]
     end
 

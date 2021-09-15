@@ -68,12 +68,6 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
-[[Distances]]
-deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
-git-tree-sha1 = "9f46deb4d4ee4494ffb5a40a27a2aced67bdd838"
-uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.10.4"
-
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -254,17 +248,6 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-
-[[StatsAPI]]
-git-tree-sha1 = "1958272568dc176a1d881acb797beb909c785510"
-uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.0.0"
-
-[[StringDistances]]
-deps = ["Distances", "StatsAPI"]
-git-tree-sha1 = "94aa6289e4230f31da7a7f05f0be224f6bb531ac"
-uuid = "88034a9c-02f8-509d-84a9-84ec65e18404"
-version = "0.11.0"
 
 [[StructTypes]]
 deps = ["Dates", "UUIDs"]
